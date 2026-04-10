@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Bun/cache
+.bun/
+
+# Runtime outputs
+data/raw/*.osm.pbf
+data/raw/*.pbf
+data/raw/metadata/**
+data/intermediate/**
+data/output/**
+results/runs/**
+
+# Keep directory placeholders and docs
+!data/raw/.gitkeep
+!data/intermediate/.gitkeep
+!data/output/.gitkeep
+!results/runs/.gitkeep
+
+# Logs and local temp files
+*.log
+.DS_Store
+tmp/

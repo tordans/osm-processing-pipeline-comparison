@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/onthegomap/planetiler/main/planetiler-custommap/planetilerspec.schema.json
+# OSM filter matches playground.lua / osmium-gdal pipeline: amenity=playground OR playground=* (any value).
+# Runtime: pass --osm-path to the benchmark extract; url below is a placeholder only.
+schema_name: Playgrounds benchmark
+schema_description: Playgrounds and playground-tagged equipment from OpenStreetMap
+is_overlay: true
+attribution: <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>
+
+sources:
+  osm:
+    type: osm
+    url: geofabrik:berlin
+
+layers:
+  - id: playgrounds
+    buffer: 4
+    features:
+      - source: osm
+        geometry: point
+        min_zoom: 0
+        max_zoom: 12
+        include_when:
+          amenity: [playground]
+          playground: __any__
+        attributes:
+          - key: osm_id
+            value: "${ feature.id }"
+          - key: osm_type
+            value: "${ feature.osm_type }"
+          - key: name
+            tag_value: name
+          - key: amenity
+            tag_value: amenity
+          - key: playground
+            tag_value: playground
+
+      - source: osm
+        geometry: line
+        min_zoom: 0
+        max_zoom: 12
+        include_when:
+          amenity: [playground]
+          playground: __any__
+        attributes:
+          - key: osm_id
+            value: "${ feature.id }"
+          - key: osm_type
+            value: "${ feature.osm_type }"
+          - key: name
+            tag_value: name
+          - key: amenity
+            tag_value: amenity
+          - key: playground
+            tag_value: playground
+
+      - source: osm
+        geometry: polygon
+        min_zoom: 0
+        max_zoom: 12
+        include_when:
+          amenity: [playground]
+          playground: __any__
+        attributes:
+          - key: osm_id
+            value: "${ feature.id }"
+          - key: osm_type
+            value: "${ feature.osm_type }"
+          - key: name
+            tag_value: name
+          - key: amenity
+            tag_value: amenity
+          - key: playground
+            tag_value: playground

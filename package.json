@@ -1,0 +1,20 @@
+{
+  "name": "osm-processing-pipeline-comparison",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "orchestrate": "bun run orchestrator/src/index.ts run --dataset berlin",
+    "prepare:berlin": "bun run orchestrator/src/index.ts prepare --dataset berlin",
+    "prepare:germany": "bun run orchestrator/src/index.ts prepare --dataset germany",
+    "summary": "bun run orchestrator/src/index.ts summary",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "latest"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "latest"
+  }
+}
