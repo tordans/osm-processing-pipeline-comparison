@@ -44,6 +44,143 @@ function rowFor(p: PipelineRunResult): string {
   return `| ${p.id} | ${p.status} | ${valOk} | ${fmtMs(p.buildMs)} | ${fmtMs(p.containerMs)} | ${fmtMs(p.totalMs)} | ${procCol} | ${featureCount} | ${pq} | ${pm} | ${err} |`;
 }
 
+const B2_REFERENCE_ID = "osm2pgsql-postgis-prefilter";
+
+/** Step keys that exist in B2 and at least one other pipeline (for like-for-like deltas). */
+const COMPARABLE_STEP_KEYS = [
+  "export_geoparquet",
+  "export_pmtiles",
+  "validate",
+] as const;
+
+function compareToRefMs(refMs: number, otherMs: number): { deltaMs: number; pctPhrase: string } {
+  const deltaMs = otherMs - refMs;
+  if (!Number.isFinite(refMs) || refMs <= 0 || !Number.isFinite(otherMs)) {
+    return { deltaMs: NaN, pctPhrase: "—" };
+  }
+  if (deltaMs === 0) {
+    return { deltaMs: 0, pctPhrase: "same as reference" };
+  }
+  if (otherMs < refMs) {
+    const pctLess = ((refMs - otherMs) / refMs) * 100;
+    return { deltaMs, pctPhrase: `${pctLess.toFixed(1)}% less time than reference` };
+  }
+  const pctMore = ((otherMs - refMs) / refMs) * 100;
+  return { deltaMs, pctPhrase: `${pctMore.toFixed(1)}% more time than reference` };
+}
+
+function fmtVsRef(refMs: number, otherMs: number): string {
+  const { deltaMs, pctPhrase } = compareToRefMs(refMs, otherMs);
+  if (Number.isNaN(deltaMs)) {
+    return "—";
+  }
+  if (deltaMs === 0) {
+    return "0s (baseline)";
+  }
+  if (deltaMs < 0) {
+    return `${fmtMs(-deltaMs)} faster; ${pctPhrase}`;
+  }
+  return `${fmtMs(deltaMs)} slower; ${pctPhrase}`;
+}
+
+function buildVsB2Section(
+  pipelines: PipelineRunResult[],
+  ref: PipelineRunResult | undefined,
+): string[] {
+  if (!ref) {
+    return [
+      "## vs osm2pgsql + Osmium prefilter (B2 reference)",
+      "",
+      "`osm2pgsql-postgis-prefilter` was not present in this run; skipping reference comparison.",
+      "",
+    ];
+  }
+  if (ref.status !== "ok") {
+    return [
+      "## vs osm2pgsql + Osmium prefilter (B2 reference)",
+      "",
+      "B2 did not complete successfully (`status` ≠ ok); reference comparison omitted.",
+      "",
+    ];
+  }
+
+  const lines: string[] = [
+    "## vs osm2pgsql + Osmium prefilter (B2 reference)",
+    "",
+    "Baseline: **osm2pgsql-postgis-prefilter** (Osmium `tags-filter` + osm2pgsql → PostGIS → exports). Other pipelines show wall-time deltas and relative duration vs that baseline.",
+    "",
+    "| Pipeline | Total (build+run) vs B2 | Container vs B2 | In-container (script) vs B2 |",
+    "| --- | --- | --- | --- |",
+  ];
+
+  const refTotal = ref.totalMs;
+  const refContainer = ref.containerMs;
+  const refProc = ref.stepTimings?.total_ms;
+
+  const ordered = [
+    ref,
+    ...pipelines.filter((p) => p.id !== B2_REFERENCE_ID).sort((a, b) => a.id.localeCompare(b.id)),
+  ];
+
+  for (const p of ordered) {
+    if (p.id === B2_REFERENCE_ID) {
+      lines.push(`| ${p.id} | baseline | baseline | baseline |`);
+      continue;
+    }
+    const totalCell =
+      p.status === "ok" ? fmtVsRef(refTotal, p.totalMs) : "— (pipeline failed)";
+    const containerCell =
+      p.status === "ok" ? fmtVsRef(refContainer, p.containerMs) : "—";
+    let procCell = "—";
+    if (p.status === "ok" && refProc !== undefined && p.stepTimings?.total_ms !== undefined) {
+      procCell = fmtVsRef(refProc, p.stepTimings.total_ms);
+    } else if (p.status === "ok") {
+      procCell = "— (missing timings)";
+    }
+    lines.push(`| ${p.id} | ${totalCell} | ${containerCell} | ${procCell} |`);
+  }
+
+  lines.push("");
+  lines.push("### Comparable in-container steps (same `step_timings.json` keys as B2)");
+  lines.push("");
+  lines.push(
+    "Only steps emitted under the same name in B2 and another pipeline; empty cells mean that pipeline has no matching step.",
+  );
+  lines.push("");
+
+  const header = ["Step", ...pipelines.filter((p) => p.id !== B2_REFERENCE_ID).map((p) => p.id)];
+  lines.push(`| ${header.join(" | ")} |`);
+  lines.push(`| ${header.map(() => "---").join(" | ")} |`);
+
+  const refSteps = ref.stepTimings?.steps_ms ?? {};
+  for (const stepKey of COMPARABLE_STEP_KEYS) {
+    const refStepMs = Number(refSteps[stepKey as string]);
+    if (!Number.isFinite(refStepMs)) {
+      continue;
+    }
+    const cells: string[] = [stepKey];
+    for (const p of pipelines) {
+      if (p.id === B2_REFERENCE_ID) {
+        continue;
+      }
+      if (p.status !== "ok") {
+        cells.push("—");
+        continue;
+      }
+      const otherMs = Number(p.stepTimings?.steps_ms?.[stepKey as string]);
+      if (!Number.isFinite(otherMs)) {
+        cells.push("—");
+        continue;
+      }
+      cells.push(fmtVsRef(refStepMs, otherMs));
+    }
+    lines.push(`| ${cells.join(" | ")} |`);
+  }
+
+  lines.push("");
+  return lines;
+}
+
 function buildPrefilterNote(p1?: PipelineRunResult, p2?: PipelineRunResult): string {
   if (!p1 || !p2) {
     return "No B1/B2 pair found in this run.";
@@ -124,7 +261,7 @@ export async function generateSummaryFromRuns(): Promise<void> {
 
   const pipelines = [...latest.pipelines].sort((a, b) => a.id.localeCompare(b.id));
   const b1 = pipelines.find((p) => p.id === "osm2pgsql-postgis-direct");
-  const b2 = pipelines.find((p) => p.id === "osm2pgsql-postgis-prefilter");
+  const b2 = pipelines.find((p) => p.id === B2_REFERENCE_ID);
   const okCount = pipelines.filter((p) => p.status === "ok").length;
 
   const pipelineA = pipelines.find((p) => p.id === "osmium-gdal-tippecanoe");
@@ -189,6 +326,7 @@ export async function generateSummaryFromRuns(): Promise<void> {
     "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...pipelines.map((p) => rowFor(p)),
     "",
+    ...buildVsB2Section(pipelines, b2),
     crossCheck,
     warningsSection,
     ...buildPerPipelineProfileSections(pipelines),
