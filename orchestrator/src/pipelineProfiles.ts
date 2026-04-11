@@ -5,6 +5,7 @@ export const PMTILES_STEP_KEYS: Record<string, string> = {
   "osmium-gdal-tippecanoe": "export_pmtiles",
   "osm2pgsql-postgis-direct": "export_pmtiles",
   "osm2pgsql-postgis-prefilter": "export_pmtiles",
+  "osm2pgsql-postgis-prefilter-osmfilter": "export_pmtiles",
   "planetiler-playgrounds": "planetiler_pmtiles",
 };
 
@@ -12,6 +13,7 @@ export const PARQUET_STEP_KEYS: Record<string, string | undefined> = {
   "osmium-gdal-tippecanoe": "export_geoparquet",
   "osm2pgsql-postgis-direct": "export_geoparquet",
   "osm2pgsql-postgis-prefilter": "export_geoparquet",
+  "osm2pgsql-postgis-prefilter-osmfilter": "export_geoparquet",
   "planetiler-playgrounds": undefined,
 };
 
@@ -22,6 +24,8 @@ const DELIVERY_HOW: Record<string, string> = {
     "osm2pgsql flex → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
   "osm2pgsql-postgis-prefilter":
     "Osmium `tags-filter` → osm2pgsql flex → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
+  "osm2pgsql-postgis-prefilter-osmfilter":
+    "`osmconvert` (PBF→o5m) → osmfilter → osm2pgsql flex → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
   "planetiler-playgrounds":
     "Planetiler custommap YAML (single JVM pass) → native PMTiles writer → `playgrounds.pmtiles`.",
 };
@@ -32,6 +36,8 @@ const PARQUET_HOW: Record<string, string> = {
   "osm2pgsql-postgis-direct":
     "GeoPandas reads GeoJSONSeq, writes GeoParquet via PyArrow (GDAL Parquet driver not assumed).",
   "osm2pgsql-postgis-prefilter":
+    "GeoPandas reads GeoJSONSeq, writes GeoParquet via PyArrow (GDAL Parquet driver not assumed).",
+  "osm2pgsql-postgis-prefilter-osmfilter":
     "GeoPandas reads GeoJSONSeq, writes GeoParquet via PyArrow (GDAL Parquet driver not assumed).",
   "planetiler-playgrounds":
     "Not supported — Planetiler does not emit Parquet; this benchmark does not add a second OSM pass to synthesize it.",
@@ -44,6 +50,8 @@ const SERVER_NOTES: Record<string, string> = {
     "PostgreSQL + PostGIS + osm2pgsql + SQL post-process. Higher ops surface (extensions, tuning, disk for DB).",
   "osm2pgsql-postgis-prefilter":
     "Same as direct variant plus Osmium prefilter step; smaller import, still full Postgres lifecycle in the container.",
+  "osm2pgsql-postgis-prefilter-osmfilter":
+    "Same as B2 but prefilter is osmconvert + osmfilter (no Osmium); needs extra disk for full `.o5m` before filtering.",
   "planetiler-playgrounds":
     "Single JVM + `planetiler.jar`; heap scales with extract size (~0.5× PBF recommended, 1 GiB floor in script). No DB.",
 };
@@ -55,6 +63,8 @@ const CI_NOTES: Record<string, string> = {
     "Docker on GHA: Berlin is typical; Germany stresses RAM/disk and runtime. Same Netlify note: artifact hosting only.",
   "osm2pgsql-postgis-prefilter":
     "Same runner considerations as B1; prefilter reduces import time but still needs Postgres in Docker.",
+  "osm2pgsql-postgis-prefilter-osmfilter":
+    "Same as B2; Germany needs enough disk for a full `.o5m` copy during `osmconvert` (osmfilter requires a seekable file).",
   "planetiler-playgrounds":
     "Docker on GHA: set `PLANETILER_JAVA_OPTS` if the default heap hits runner limits. Germany may need a larger runner. Netlify: host outputs only.",
 };

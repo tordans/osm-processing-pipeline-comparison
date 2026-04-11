@@ -14,6 +14,7 @@ This repository benchmarks alternative OpenStreetMap processing pipelines for ex
 - `pipelines/osmium-gdal-tippecanoe`
 - `pipelines/osm2pgsql-postgis-direct`
 - `pipelines/osm2pgsql-postgis-prefilter`
+- `pipelines/osm2pgsql-postgis-prefilter-osmfilter` (same as B2, but `osmconvert` + `osmfilter` instead of Osmium — compare prefilter vs B2)
 - `pipelines/planetiler-playgrounds` (PMTiles only; no GeoParquet in this toolchain—see `validation.json` → `lacking`)
 
 ## Dataset selection

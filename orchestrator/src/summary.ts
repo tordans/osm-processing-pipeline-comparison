@@ -45,6 +45,7 @@ function rowFor(p: PipelineRunResult): string {
 }
 
 const B2_REFERENCE_ID = "osm2pgsql-postgis-prefilter";
+const B2_OSMFILTER_ID = "osm2pgsql-postgis-prefilter-osmfilter";
 
 /** Step keys that exist in B2 and at least one other pipeline (for like-for-like deltas). */
 const COMPARABLE_STEP_KEYS = [
@@ -223,6 +224,82 @@ function buildPrefilterNote(p1?: PipelineRunResult, p2?: PipelineRunResult): str
   return lines.join("\n");
 }
 
+function buildB2VsOsmfilterSection(
+  b2: PipelineRunResult | undefined,
+  b2Osmfilter: PipelineRunResult | undefined,
+): string[] {
+  if (!b2 || !b2Osmfilter) {
+    return [
+      "## B2 vs osmfilter prefilter (Osmium vs osmctools)",
+      "",
+      "`osm2pgsql-postgis-prefilter` and/or `osm2pgsql-postgis-prefilter-osmfilter` were not present in this run; skipping Osmium vs osmfilter comparison.",
+      "",
+    ];
+  }
+  if (b2.status !== "ok" || b2Osmfilter.status !== "ok") {
+    return [
+      "## B2 vs osmfilter prefilter (Osmium vs osmctools)",
+      "",
+      "Both B2 and the osmfilter pipeline must succeed to compare prefilter tools; see errors above.",
+      "",
+    ];
+  }
+
+  const b2Pref = Number(b2.stepTimings?.steps_ms?.prefilter ?? NaN);
+  const osmPref = Number(b2Osmfilter.stepTimings?.steps_ms?.prefilter ?? NaN);
+  const conv = Number(b2Osmfilter.stepTimings?.steps_ms?.prefilter_convert ?? NaN);
+  const filt = Number(b2Osmfilter.stepTimings?.steps_ms?.prefilter_osmfilter ?? NaN);
+
+  const b2Fc = Number(b2.validation?.feature_count ?? NaN);
+  const osmFc = Number(b2Osmfilter.validation?.feature_count ?? NaN);
+  let fcNote = "";
+  if (Number.isFinite(b2Fc) && Number.isFinite(osmFc) && b2Fc !== osmFc) {
+    fcNote = ` **Warning:** feature counts differ (B2=${b2Fc}, osmfilter pipeline=${osmFc}); filters may not be fully equivalent.`;
+  }
+
+  const lines: string[] = [
+    "## B2 vs osmfilter prefilter (Osmium vs osmctools)",
+    "",
+    "Same downstream steps as B2; only the prefilter differs: **B2** uses Osmium `tags-filter` on PBF; **osmfilter pipeline** uses `osmconvert` (full PBF→`.o5m`) then `osmfilter` (see [osmium-tool#253](https://github.com/osmcode/osmium-tool/issues/253)).",
+    "",
+  ];
+
+  if (Number.isFinite(b2Pref)) {
+    lines.push(`- **B2 prefilter (Osmium):** ${fmtMs(b2Pref)}`);
+  } else {
+    lines.push("- **B2 prefilter (Osmium):** —");
+  }
+
+  if (Number.isFinite(osmPref)) {
+    lines.push(`- **osmfilter pipeline prefilter (total):** ${fmtMs(osmPref)}`);
+  } else {
+    lines.push("- **osmfilter pipeline prefilter (total):** —");
+  }
+
+  if (Number.isFinite(conv) && Number.isFinite(filt)) {
+    lines.push(
+      `  - *split:* \`osmconvert\` ${fmtMs(conv)} + \`osmfilter\` ${fmtMs(filt)}`,
+    );
+  }
+
+  if (
+    Number.isFinite(b2Pref) &&
+    b2Pref > 0 &&
+    Number.isFinite(osmPref) &&
+    osmPref > 0
+  ) {
+    const ratio = osmPref / b2Pref;
+    lines.push(
+      `- **Prefilter ratio (osmfilter total ÷ B2 Osmium):** ${ratio.toFixed(2)}×${fcNote}`,
+    );
+  } else {
+    lines.push(`- **Prefilter ratio:** —${fcNote}`);
+  }
+
+  lines.push("");
+  return lines;
+}
+
 function failuresSection(pipelines: PipelineRunResult[]): string[] {
   const failed = pipelines.filter((p) => p.status === "failed");
   if (failed.length === 0) {
@@ -262,6 +339,7 @@ export async function generateSummaryFromRuns(): Promise<void> {
   const pipelines = [...latest.pipelines].sort((a, b) => a.id.localeCompare(b.id));
   const b1 = pipelines.find((p) => p.id === "osm2pgsql-postgis-direct");
   const b2 = pipelines.find((p) => p.id === B2_REFERENCE_ID);
+  const b2Osmfilter = pipelines.find((p) => p.id === B2_OSMFILTER_ID);
   const okCount = pipelines.filter((p) => p.status === "ok").length;
 
   const pipelineA = pipelines.find((p) => p.id === "osmium-gdal-tippecanoe");
@@ -327,6 +405,7 @@ export async function generateSummaryFromRuns(): Promise<void> {
     ...pipelines.map((p) => rowFor(p)),
     "",
     ...buildVsB2Section(pipelines, b2),
+    ...buildB2VsOsmfilterSection(b2, b2Osmfilter),
     crossCheck,
     warningsSection,
     ...buildPerPipelineProfileSections(pipelines),

@@ -46,6 +46,13 @@ export const PIPELINES: PipelineConfig[] = [
     scriptPathInWorkspace: "/workspace/pipelines/osm2pgsql-postgis-prefilter/scripts/run.sh",
   },
   {
+    id: "osm2pgsql-postgis-prefilter-osmfilter",
+    imageTag: "osm-benchmark-pipeline-b2-osmfilter:latest",
+    dir: resolve(REPO_ROOT, "pipelines", "osm2pgsql-postgis-prefilter-osmfilter"),
+    scriptPathInWorkspace:
+      "/workspace/pipelines/osm2pgsql-postgis-prefilter-osmfilter/scripts/run.sh",
+  },
+  {
     id: "planetiler-playgrounds",
     imageTag: "osm-benchmark-pipeline-planetiler:latest",
     dir: resolve(REPO_ROOT, "pipelines", "planetiler-playgrounds"),
