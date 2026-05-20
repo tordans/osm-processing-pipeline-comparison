@@ -1,0 +1,4 @@
+# Require packages to be published at least 5 days before install (supply-chain posture).
+# 432000 seconds = 5 × 24 × 60 × 60
+[install]
+minimumReleaseAge = 432000
