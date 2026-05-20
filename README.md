@@ -33,7 +33,9 @@ Target outputs (see `results/methodology.md` for the full contract and declared 
 - GeoParquet (`.parquet`) where the toolchain supports it
 - Validation summary JSON (`validation.json`), including `lacking` when a pipeline omits an artifact
 
-Run artifacts and timings are written to `results/runs`.
+Each pipeline run writes a canonical `comparison.json` (same schema for all pipelines) under `data/output/<pipeline-id>/<dataset>/`. The summary report reads only these files plus orchestrator wall-clock timings.
+
+Run artifacts are written to `results/runs`.
 
 ## Orchestration
 
@@ -48,10 +50,23 @@ The central orchestrator lives in `orchestrator` and runs all pipelines sequenti
 1. Install Bun and Docker.
 2. From repository root:
    - `bun install`
-   - `bun run orchestrator/src/index.ts run --dataset berlin`
+   - `bun run orchestrate` (Berlin)
+   - `bun run orchestrate:germany` (Germany full extract)
 3. Open:
    - `results/runs/`
    - `results/summary.md`
+
+## Overnight / long runs (Germany)
+
+For multi-hour runs, use the background wrapper and poll status without streaming logs:
+
+```bash
+bun run prepare:germany
+bun run run:background germany
+bun run status:benchmark germany   # repeat; reads PID + latest run artifact
+```
+
+Logs: `results/logs/benchmark-germany-<timestamp>.log`. Stop a run with `kill $(cat results/runs/benchmark-germany.pid)`.
 
 ## Methodology and notes
 

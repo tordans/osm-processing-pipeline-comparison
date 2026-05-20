@@ -11,6 +11,9 @@ data/raw/metadata/**
 data/intermediate/**
 data/output/**
 results/runs/**
+results/runs/*.pid
+results/runs/*.status.json
+results/logs/**
 
 # Keep directory placeholders and docs
 !data/raw/.gitkeep
