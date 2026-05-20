@@ -5,7 +5,12 @@ import { intro, outro, spinner } from "@clack/prompts";
 import { DATASETS, PIPELINES, REPO_ROOT, RESULTS_RUNS_DIR } from "./config";
 import { prepareInput } from "./prepare";
 import { generateSummaryFromRuns } from "./summary";
-import type { BenchmarkRunReport, DatasetKey, PipelineRunResult } from "./types";
+import type {
+  BenchmarkRunReport,
+  ComparisonArtifact,
+  DatasetKey,
+  PipelineRunResult,
+} from "./types";
 
 function nowMs(): number {
   return Date.now();
@@ -87,6 +92,7 @@ async function runPipeline(
   const outputDir = join(REPO_ROOT, "data", "output", pipeline.id, datasetKey);
   const validationPath = join(outputDir, "validation.json");
   const stepTimingsPath = join(outputDir, "step_timings.json");
+  const comparisonPath = join(outputDir, "comparison.json");
   await mkdir(outputDir, { recursive: true });
 
   const build = runCommand(["docker", "build", "-t", pipeline.imageTag, pipeline.dir], REPO_ROOT);
@@ -101,6 +107,7 @@ async function runPipeline(
       outputDir,
       validationPath,
       stepTimingsPath,
+      comparisonPath,
       error: "docker build failed",
     };
   }
@@ -122,22 +129,17 @@ async function runPipeline(
     validation = (await Bun.file(validationPath).json()) as Record<string, unknown>;
   }
 
-  let stepTimings:
-    | {
-        pipeline: string;
-        dataset: string;
-        steps_ms: Record<string, number>;
-        total_ms: number;
-      }
-    | undefined;
+  let stepTimings: PipelineRunResult["stepTimings"];
 
   if (existsSync(stepTimingsPath)) {
-    stepTimings = (await Bun.file(stepTimingsPath).json()) as {
-      pipeline: string;
-      dataset: string;
-      steps_ms: Record<string, number>;
-      total_ms: number;
-    };
+    stepTimings = (await Bun.file(stepTimingsPath).json()) as NonNullable<
+      PipelineRunResult["stepTimings"]
+    >;
+  }
+
+  let comparison: ComparisonArtifact | undefined;
+  if (existsSync(comparisonPath)) {
+    comparison = (await Bun.file(comparisonPath).json()) as ComparisonArtifact;
   }
 
   const failed = run.code !== 0;
@@ -152,7 +154,9 @@ async function runPipeline(
     outputDir,
     validationPath,
     stepTimingsPath,
+    comparisonPath,
     validation,
+    comparison,
     stepTimings,
     error: failed ? "docker run failed" : undefined,
     stderrTail: failed ? tailText(run.stderr, 6000) : undefined,
@@ -163,8 +167,11 @@ async function runAll(datasetKey: DatasetKey, force: boolean): Promise<void> {
   intro("OSM Processing Pipeline Benchmark");
   const spin = spinner();
 
-  spin.start(`Preparing dataset: ${datasetKey}`);
+  spin.start(`Preflight dataset: ${datasetKey}`);
   const prepared = await prepareInput(DATASETS[datasetKey], force);
+  if (!existsSync(prepared.inputPath)) {
+    throw new Error(`Dataset file missing after prepare: ${prepared.inputPath}`);
+  }
   spin.stop(
     prepared.downloaded
       ? `Dataset downloaded: ${prepared.inputPath}`

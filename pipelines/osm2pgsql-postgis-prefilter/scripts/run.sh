@@ -146,22 +146,18 @@ if not validation["ok"]:
 PY
 T15=$(date +%s%3N)
 
-cat > "${TIMINGS_JSON}" <<EOF
-{
-  "pipeline": "${PIPELINE_ID}",
-  "dataset": "${DATASET_NAME}",
-  "steps_ms": {
-    "prefilter": $((T1 - T0)),
-    "prepare_db": $((T3 - T2)),
-    "extract_import": $((T5 - T4)),
-    "transform_enrich_sql": $((T7 - T6)),
-    "export_ndjson": $((T9 - T8)),
-    "export_geoparquet": $((T11 - T10)),
-    "export_pmtiles": $((T13 - T12)),
-    "validate": $((T15 - T14))
-  },
-  "total_ms": $((T15 - T0))
-}
-EOF
+export CMP_FILTER_MS="$((T1 - T0))"
+export CMP_CLEAN_TRANSFORM_MS="$(( (T3 - T2) + (T5 - T4) + (T9 - T8) ))"
+export CMP_EXPORT_GEOPARQUET_MS="$((T11 - T10))"
+export CMP_EXPORT_PMTILES_MS="$((T13 - T12))"
+export CMP_SQL_POSTPROCESS_MS="$((T7 - T6))"
+export CMP_VALIDATE_MS="$((T15 - T14))"
+export CMP_TOTAL_IN_CONTAINER_MS="$((T15 - T0))"
+export REQ_GENERATE_GEOPARQUET_MATCHED="true"
+export REQ_GENERATE_PMTILES_MATCHED="true"
+export REQ_FILTER_CLEAN_CONFIRMED_MATCHED="true"
+export REQ_SQL_POSTPROCESS_MATCHED="true"
+# shellcheck source=/dev/null
+source /workspace/pipelines/lib/write-comparison.sh
 
 echo "[pipeline-b2] done"

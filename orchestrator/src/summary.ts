@@ -1,58 +1,40 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
+import {
+  buildCanonicalTimingsTable,
+  buildDatasetSection,
+  buildRequirementsTable,
+  fmtMs,
+  loadAllComparisons,
+} from "./comparisonReport";
 import { RESULTS_RUNS_DIR, RESULTS_SUMMARY_PATH } from "./config";
-import { buildPerPipelineProfileSections } from "./pipelineProfiles";
 import type { BenchmarkRunReport, PipelineRunResult } from "./types";
 
-function fmtMs(ms: number): string {
-  return `${(ms / 1000).toFixed(2)}s`;
-}
-
-function fmtBytes(n: unknown): string {
-  const v = Number(n);
-  if (!Number.isFinite(v) || v <= 0) {
-    return "—";
-  }
-  if (v < 1024) {
-    return `${v} B`;
-  }
-  if (v < 1024 * 1024) {
-    return `${(v / 1024).toFixed(1)} KiB`;
-  }
-  return `${(v / (1024 * 1024)).toFixed(2)} MiB`;
-}
-
-function escapeCell(s: string): string {
-  return s.replace(/\|/g, "\\|").replace(/\n/g, " ");
-}
-
-function rowFor(p: PipelineRunResult): string {
-  const fc = p.validation?.feature_count;
-  const featureCount =
-    typeof fc === "number" && Number.isFinite(fc) ? String(fc) : "—";
-  const procMs = p.stepTimings?.total_ms;
-  const procCol = procMs !== undefined ? fmtMs(procMs) : "—";
-  const pq = fmtBytes(p.validation?.parquet_bytes);
-  const pm = fmtBytes(p.validation?.pmtiles_bytes);
-  const err = p.error ? escapeCell(p.error) : "—";
-  const valOk =
-    p.validation && typeof p.validation.ok === "boolean"
-      ? p.validation.ok
-        ? "yes"
-        : "no"
-      : "—";
-  return `| ${p.id} | ${p.status} | ${valOk} | ${fmtMs(p.buildMs)} | ${fmtMs(p.containerMs)} | ${fmtMs(p.totalMs)} | ${procCol} | ${featureCount} | ${pq} | ${pm} | ${err} |`;
-}
-
 const B2_REFERENCE_ID = "osm2pgsql-postgis-prefilter";
-const B2_OSMFILTER_ID = "osm2pgsql-postgis-prefilter-osmfilter";
-
-/** Step keys that exist in B2 and at least one other pipeline (for like-for-like deltas). */
-const COMPARABLE_STEP_KEYS = [
-  "export_geoparquet",
-  "export_pmtiles",
+const CANONICAL_STEP_KEYS = [
+  "filter",
+  "cleanTransform",
+  "exportGeoParquet",
+  "exportPmtiles",
+  "sqlPostprocess",
   "validate",
 ] as const;
+const B2_OSMFILTER_ID = "osm2pgsql-postgis-prefilter-osmfilter";
+const COSMO_DUAL_PASS_ID = "cosmo-playgrounds-dual-pass";
+const COSMO_SINGLE_PASS_ID = "cosmo-playgrounds-single-pass";
+
+function stepMsFromComparison(
+  p: PipelineRunResult,
+  comparisons: Map<string, import("./types").ComparisonArtifact | undefined>,
+  key: (typeof CANONICAL_STEP_KEYS)[number],
+): number | undefined {
+  const t = comparisons.get(p.id)?.timingsMs;
+  if (!t) {
+    return undefined;
+  }
+  const raw = t[key];
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
+}
 
 function compareToRefMs(refMs: number, otherMs: number): { deltaMs: number; pctPhrase: string } {
   const deltaMs = otherMs - refMs;
@@ -87,6 +69,7 @@ function fmtVsRef(refMs: number, otherMs: number): string {
 function buildVsB2Section(
   pipelines: PipelineRunResult[],
   ref: PipelineRunResult | undefined,
+  comparisons: Map<string, import("./types").ComparisonArtifact | undefined>,
 ): string[] {
   if (!ref) {
     return [
@@ -116,7 +99,7 @@ function buildVsB2Section(
 
   const refTotal = ref.totalMs;
   const refContainer = ref.containerMs;
-  const refProc = ref.stepTimings?.total_ms;
+  const refProc = comparisons.get(B2_REFERENCE_ID)?.timingsMs.totalInContainer;
 
   const ordered = [
     ref,
@@ -133,8 +116,9 @@ function buildVsB2Section(
     const containerCell =
       p.status === "ok" ? fmtVsRef(refContainer, p.containerMs) : "—";
     let procCell = "—";
-    if (p.status === "ok" && refProc !== undefined && p.stepTimings?.total_ms !== undefined) {
-      procCell = fmtVsRef(refProc, p.stepTimings.total_ms);
+    const otherProc = comparisons.get(p.id)?.timingsMs.totalInContainer;
+    if (p.status === "ok" && refProc !== undefined && otherProc !== undefined) {
+      procCell = fmtVsRef(refProc, otherProc);
     } else if (p.status === "ok") {
       procCell = "— (missing timings)";
     }
@@ -142,10 +126,10 @@ function buildVsB2Section(
   }
 
   lines.push("");
-  lines.push("### Comparable in-container steps (same `step_timings.json` keys as B2)");
+  lines.push("### Comparable in-container steps (canonical `comparison.json` keys)");
   lines.push("");
   lines.push(
-    "Only steps emitted under the same name in B2 and another pipeline; empty cells mean that pipeline has no matching step.",
+    "Only canonical steps with numeric timings in B2 and another pipeline; empty cells mean that pipeline has no timing for that step.",
   );
   lines.push("");
 
@@ -153,10 +137,9 @@ function buildVsB2Section(
   lines.push(`| ${header.join(" | ")} |`);
   lines.push(`| ${header.map(() => "---").join(" | ")} |`);
 
-  const refSteps = ref.stepTimings?.steps_ms ?? {};
-  for (const stepKey of COMPARABLE_STEP_KEYS) {
-    const refStepMs = Number(refSteps[stepKey as string]);
-    if (!Number.isFinite(refStepMs)) {
+  for (const stepKey of CANONICAL_STEP_KEYS) {
+    const refStepMs = stepMsFromComparison(ref, comparisons, stepKey);
+    if (refStepMs === undefined) {
       continue;
     }
     const cells: string[] = [stepKey];
@@ -168,8 +151,8 @@ function buildVsB2Section(
         cells.push("—");
         continue;
       }
-      const otherMs = Number(p.stepTimings?.steps_ms?.[stepKey as string]);
-      if (!Number.isFinite(otherMs)) {
+      const otherMs = stepMsFromComparison(p, comparisons, stepKey);
+      if (otherMs === undefined) {
         cells.push("—");
         continue;
       }
@@ -182,7 +165,11 @@ function buildVsB2Section(
   return lines;
 }
 
-function buildPrefilterNote(p1?: PipelineRunResult, p2?: PipelineRunResult): string {
+function buildPrefilterNote(
+  p1: PipelineRunResult | undefined,
+  p2: PipelineRunResult | undefined,
+  comparisons: Map<string, import("./types").ComparisonArtifact | undefined>,
+): string {
   if (!p1 || !p2) {
     return "No B1/B2 pair found in this run.";
   }
@@ -194,24 +181,24 @@ function buildPrefilterNote(p1?: PipelineRunResult, p2?: PipelineRunResult): str
   const relation = deltaMs < 0 ? "faster" : "slower";
   const deltaAbs = Math.abs(deltaMs);
 
-  const p2PrefilterMs = Number(p2.stepTimings?.steps_ms?.prefilter ?? 0);
-  const p1ImportMs = Number(p1.stepTimings?.steps_ms?.extract_import ?? 0);
-  const p2ImportMs = Number(p2.stepTimings?.steps_ms?.extract_import ?? 0);
-  const importDelta = p2ImportMs - p1ImportMs;
+  const p2PrefilterMs = comparisons.get(p2.id)?.timingsMs.filter ?? 0;
+  const p1CleanMs = comparisons.get(p1.id)?.timingsMs.cleanTransform ?? 0;
+  const p2CleanMs = comparisons.get(p2.id)?.timingsMs.cleanTransform ?? 0;
+  const importDelta = p2CleanMs - p1CleanMs;
 
-  const p1Proc = p1.stepTimings?.total_ms;
-  const p2Proc = p2.stepTimings?.total_ms;
+  const p1Proc = comparisons.get(p1.id)?.timingsMs.totalInContainer;
+  const p2Proc = comparisons.get(p2.id)?.timingsMs.totalInContainer;
   const procDelta =
     p1Proc !== undefined && p2Proc !== undefined ? p2Proc - p1Proc : undefined;
 
   const lines = [
     `- **End-to-end (build + container wall):** B2 is ${fmtMs(deltaAbs)} ${relation} than B1.`,
     `- **B2 osmium prefilter:** ${fmtMs(p2PrefilterMs)}`,
-    `- **osm2pgsql import (B2 − B1):** ${fmtMs(importDelta)}`,
+    `- **Clean/transform (B2 − B1):** ${fmtMs(importDelta)}`,
   ];
   if (procDelta !== undefined) {
     lines.push(
-      `- **In-container script total (B2 − B1):** ${fmtMs(procDelta)} (from each pipeline’s \`step_timings.json\`, excludes image build)`,
+      `- **In-container total (B2 − B1):** ${fmtMs(procDelta)} (from each pipeline’s \`comparison.json\`, excludes image build)`,
     );
   }
   const f1 = Number((p1.validation?.feature_count as number) ?? 0);
@@ -227,6 +214,7 @@ function buildPrefilterNote(p1?: PipelineRunResult, p2?: PipelineRunResult): str
 function buildB2VsOsmfilterSection(
   b2: PipelineRunResult | undefined,
   b2Osmfilter: PipelineRunResult | undefined,
+  comparisons: Map<string, import("./types").ComparisonArtifact | undefined>,
 ): string[] {
   if (!b2 || !b2Osmfilter) {
     return [
@@ -245,10 +233,8 @@ function buildB2VsOsmfilterSection(
     ];
   }
 
-  const b2Pref = Number(b2.stepTimings?.steps_ms?.prefilter ?? NaN);
-  const osmPref = Number(b2Osmfilter.stepTimings?.steps_ms?.prefilter ?? NaN);
-  const conv = Number(b2Osmfilter.stepTimings?.steps_ms?.prefilter_convert ?? NaN);
-  const filt = Number(b2Osmfilter.stepTimings?.steps_ms?.prefilter_osmfilter ?? NaN);
+  const b2Pref = comparisons.get(b2.id)?.timingsMs.filter ?? NaN;
+  const osmPref = comparisons.get(b2Osmfilter.id)?.timingsMs.filter ?? NaN;
 
   const b2Fc = Number(b2.validation?.feature_count ?? NaN);
   const osmFc = Number(b2Osmfilter.validation?.feature_count ?? NaN);
@@ -276,12 +262,6 @@ function buildB2VsOsmfilterSection(
     lines.push("- **osmfilter pipeline prefilter (total):** —");
   }
 
-  if (Number.isFinite(conv) && Number.isFinite(filt)) {
-    lines.push(
-      `  - *split:* \`osmconvert\` ${fmtMs(conv)} + \`osmfilter\` ${fmtMs(filt)}`,
-    );
-  }
-
   if (
     Number.isFinite(b2Pref) &&
     b2Pref > 0 &&
@@ -294,6 +274,105 @@ function buildB2VsOsmfilterSection(
     );
   } else {
     lines.push(`- **Prefilter ratio:** —${fcNote}`);
+  }
+
+  lines.push("");
+  return lines;
+}
+
+function buildCosmoVariantComparisonSection(
+  dual: PipelineRunResult | undefined,
+  single: PipelineRunResult | undefined,
+  comparisons: Map<string, import("./types").ComparisonArtifact | undefined>,
+): string[] {
+  if (!dual || !single) {
+    return [
+      "## Cosmo dual-pass vs single-pass + GDAL",
+      "",
+      "Both `cosmo-playgrounds-dual-pass` and `cosmo-playgrounds-single-pass` must be present in this run; skipping variant comparison.",
+      "",
+    ];
+  }
+  if (dual.status !== "ok" || single.status !== "ok") {
+    return [
+      "## Cosmo dual-pass vs single-pass + GDAL",
+      "",
+      "Both cosmo variants must succeed to compare export strategies; see errors above.",
+      "",
+    ];
+  }
+
+  const dualCmp = comparisons.get(dual.id);
+  const singleCmp = comparisons.get(single.id);
+  const dualCosmoMs =
+    (dualCmp?.timingsMs.exportGeoParquet ?? 0) + (dualCmp?.timingsMs.cleanTransform ?? 0);
+  const singleCosmoMs =
+    (singleCmp?.timingsMs.cleanTransform ?? NaN);
+  const dualFc = Number(dual.validation?.feature_count ?? NaN);
+  const singleFc = Number(single.validation?.feature_count ?? NaN);
+  let fcNote = "";
+  if (Number.isFinite(dualFc) && Number.isFinite(singleFc) && dualFc !== singleFc) {
+    fcNote = ` **Warning:** feature counts differ (dual-pass=${dualFc}, single-pass=${singleFc}).`;
+  }
+
+  const lines: string[] = [
+    "## Cosmo dual-pass vs single-pass + GDAL",
+    "",
+    "**Dual-pass:** two `cosmo convert` runs (native GeoParquet + GeoJSONL) then tippecanoe. **Single-pass:** one `cosmo convert` → `ogr2ogr` GeoJSONSeq → GeoPandas Parquet + tippecanoe.",
+    "",
+    "| Metric | dual-pass | single-pass | dual vs single |",
+    "| --- | --- | --- | --- |",
+  ];
+
+  const rows: Array<[string, number | undefined, number | undefined]> = [
+    ["Total (build+run)", dual.totalMs, single.totalMs],
+    ["Container wall", dual.containerMs, single.containerMs],
+    ["In-container (script)", dualCmp?.timingsMs.totalInContainer, singleCmp?.timingsMs.totalInContainer],
+  ];
+
+  for (const [label, dualMs, singleMs] of rows) {
+    const d = Number(dualMs);
+    const s = Number(singleMs);
+    const vs =
+      Number.isFinite(d) && Number.isFinite(s) ? fmtVsRef(d, s) : "—";
+    lines.push(
+      `| ${label} | ${Number.isFinite(d) ? fmtMs(d) : "—"} | ${Number.isFinite(s) ? fmtMs(s) : "—"} | ${vs} |`,
+    );
+  }
+
+  lines.push("");
+  if (Number.isFinite(dualCosmoMs) && Number.isFinite(singleCosmoMs) && singleCosmoMs > 0) {
+    const ratio = dualCosmoMs / singleCosmoMs;
+    lines.push(
+      `- **Cosmo OSM read time (dual):** ${fmtMs(dualCosmoMs)} (\`exportGeoParquet\` + \`cleanTransform\`)`,
+    );
+    lines.push(`- **Cosmo OSM read time (single):** ${fmtMs(singleCosmoMs)} (\`cleanTransform\`)`);
+    lines.push(`- **Cosmo read ratio (dual total ÷ single):** ${ratio.toFixed(2)}×${fcNote}`);
+  } else {
+    lines.push("- **Cosmo OSM read time:** —");
+  }
+
+  lines.push("");
+  lines.push("### Step breakdown (in-container)");
+  lines.push("");
+  lines.push("| Step | dual-pass | single-pass | dual vs single |");
+  lines.push("| --- | --- | --- | --- |");
+
+  for (const stepKey of CANONICAL_STEP_KEYS) {
+    const d = dualCmp?.timingsMs[stepKey];
+    const s = singleCmp?.timingsMs[stepKey];
+    const dNum = typeof d === "number" ? d : NaN;
+    const sNum = typeof s === "number" ? s : NaN;
+    if (!Number.isFinite(dNum) && !Number.isFinite(sNum)) {
+      continue;
+    }
+    const dCell = Number.isFinite(dNum) ? fmtMs(dNum) : "—";
+    const sCell = Number.isFinite(sNum) ? fmtMs(sNum) : "—";
+    let vs = "—";
+    if (Number.isFinite(dNum) && Number.isFinite(sNum)) {
+      vs = fmtVsRef(dNum, sNum);
+    }
+    lines.push(`| \`${stepKey}\` | ${dCell} | ${sCell} | ${vs} |`);
   }
 
   lines.push("");
@@ -337,9 +416,12 @@ export async function generateSummaryFromRuns(): Promise<void> {
   const latest = (await Bun.file(latestPath).json()) as BenchmarkRunReport;
 
   const pipelines = [...latest.pipelines].sort((a, b) => a.id.localeCompare(b.id));
+  const comparisons = await loadAllComparisons(pipelines);
   const b1 = pipelines.find((p) => p.id === "osm2pgsql-postgis-direct");
   const b2 = pipelines.find((p) => p.id === B2_REFERENCE_ID);
   const b2Osmfilter = pipelines.find((p) => p.id === B2_OSMFILTER_ID);
+  const cosmoDual = pipelines.find((p) => p.id === COSMO_DUAL_PASS_ID);
+  const cosmoSingle = pipelines.find((p) => p.id === COSMO_SINGLE_PASS_ID);
   const okCount = pipelines.filter((p) => p.status === "ok").length;
 
   const pipelineA = pipelines.find((p) => p.id === "osmium-gdal-tippecanoe");
@@ -391,27 +473,25 @@ export async function generateSummaryFromRuns(): Promise<void> {
     `- **Window:** \`${latest.startedAt}\` → \`${latest.finishedAt}\``,
     `- **Pipelines OK:** ${okCount} / ${pipelines.length}`,
     "",
-    "## How to read this table",
+    "## How to read this report",
     "",
+    "- Timings and requirement status are read from each pipeline’s \`comparison.json\` only.",
     "- **Build** is `docker build` time on the host (one-time per image change).",
-    "- **Container** is wall time for `docker run` (includes download/cache effects on first use).",
-    "- **In-container (script)** comes from each pipeline’s \`step_timings.json\` and reflects work inside the container only.",
-    "- **Val OK** reflects \`validation.json\` → \`ok\` from each pipeline run.",
+    "- **Container** is wall time for `docker run`.",
+    "- **In-container total** is script wall time inside the container.",
     "",
-    "## Latest run — timings and outputs",
+    ...buildDatasetSection(comparisons),
+    ...buildCanonicalTimingsTable(pipelines, comparisons),
+    ...buildRequirementsTable(pipelines, comparisons),
     "",
-    "| Pipeline | Status | Val OK | Build | Container | Total (build+run) | In-container (script) | Features | Parquet | PMTiles | Error |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
-    ...pipelines.map((p) => rowFor(p)),
-    "",
-    ...buildVsB2Section(pipelines, b2),
-    ...buildB2VsOsmfilterSection(b2, b2Osmfilter),
+    ...buildVsB2Section(pipelines, b2, comparisons),
+    ...buildB2VsOsmfilterSection(b2, b2Osmfilter, comparisons),
+    ...buildCosmoVariantComparisonSection(cosmoDual, cosmoSingle, comparisons),
     crossCheck,
     warningsSection,
-    ...buildPerPipelineProfileSections(pipelines),
     "## B1 vs B2 (prefilter vs direct osm2pgsql)",
     "",
-    buildPrefilterNote(b1, b2),
+    buildPrefilterNote(b1, b2, comparisons),
     "",
     ...failuresSection(pipelines),
     "## Installation cost notes",
@@ -420,7 +500,7 @@ export async function generateSummaryFromRuns(): Promise<void> {
     "",
     "## Raw artifacts",
     "",
-    "- Per-pipeline: `data/output/<pipeline-id>/<dataset>/validation.json` and `step_timings.json`",
+    "- Per-pipeline: `data/output/<pipeline-id>/<dataset>/comparison.json`, `validation.json`, `step_timings.json`",
     "- Full run: `results/runs/*.json`",
   ];
 

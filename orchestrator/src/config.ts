@@ -58,4 +58,16 @@ export const PIPELINES: PipelineConfig[] = [
     dir: resolve(REPO_ROOT, "pipelines", "planetiler-playgrounds"),
     scriptPathInWorkspace: "/workspace/pipelines/planetiler-playgrounds/scripts/run.sh",
   },
+  {
+    id: "cosmo-playgrounds-dual-pass",
+    imageTag: "osm-benchmark-pipeline-cosmo:latest",
+    dir: resolve(REPO_ROOT, "pipelines", "cosmo-playgrounds"),
+    scriptPathInWorkspace: "/workspace/pipelines/cosmo-playgrounds/scripts/run-dual-pass.sh",
+  },
+  {
+    id: "cosmo-playgrounds-single-pass",
+    imageTag: "osm-benchmark-pipeline-cosmo:latest",
+    dir: resolve(REPO_ROOT, "pipelines", "cosmo-playgrounds"),
+    scriptPathInWorkspace: "/workspace/pipelines/cosmo-playgrounds/scripts/run-single-pass.sh",
+  },
 ];

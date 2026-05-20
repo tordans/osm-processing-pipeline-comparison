@@ -6,8 +6,53 @@ export interface DatasetConfig {
   fileName: string;
 }
 
+export interface RequirementStatus {
+  matched: boolean;
+  reasonIfNotMatched: string | null;
+}
+
+export interface ComparisonArtifact {
+  pipelineId: string;
+  dataset: {
+    name: string;
+    inputPath: string;
+    sourceUrl: string;
+  };
+  timingsMs: {
+    filter: number | null;
+    cleanTransform: number | null;
+    exportGeoParquet: number | null;
+    exportPmtiles: number | null;
+    sqlPostprocess: number | null;
+    validate: number | null;
+    totalInContainer: number;
+  };
+  requirements: {
+    generateGeoParquet: RequirementStatus;
+    generatePmtiles: RequirementStatus;
+    filterCleanConfirmed: RequirementStatus;
+    sqlPostprocessCleanConfirmed: RequirementStatus;
+  };
+  artifacts: {
+    geoParquetPath: string;
+    geoParquetBytes: number;
+    pmtilesPath: string;
+    pmtilesBytes: number;
+  };
+  quality: {
+    validationOk: boolean;
+    featureCount: number | null;
+    notes: string[];
+  };
+}
+
 export interface StepTimings {
-  [step: string]: number;
+  filter?: number | null;
+  cleanTransform?: number | null;
+  exportGeoParquet?: number | null;
+  exportPmtiles?: number | null;
+  sqlPostprocess?: number | null;
+  validate?: number | null;
 }
 
 export interface PipelineRunResult {
@@ -20,11 +65,13 @@ export interface PipelineRunResult {
   outputDir: string;
   validationPath: string;
   stepTimingsPath: string;
+  comparisonPath: string;
   validation?: Record<string, unknown>;
+  comparison?: ComparisonArtifact;
   stepTimings?: {
     pipeline: string;
     dataset: string;
-    steps_ms: StepTimings;
+    steps_ms: Record<string, number | null>;
     total_ms: number;
   };
   error?: string;

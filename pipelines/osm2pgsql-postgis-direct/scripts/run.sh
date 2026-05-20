@@ -137,21 +137,19 @@ if not validation["ok"]:
 PY
 T13=$(date +%s%3N)
 
-cat > "${TIMINGS_JSON}" <<EOF
-{
-  "pipeline": "${PIPELINE_ID}",
-  "dataset": "${DATASET_NAME}",
-  "steps_ms": {
-    "prepare_db": $((T1 - T0)),
-    "extract_import": $((T3 - T2)),
-    "transform_enrich_sql": $((T5 - T4)),
-    "export_ndjson": $((T7 - T6)),
-    "export_geoparquet": $((T9 - T8)),
-    "export_pmtiles": $((T11 - T10)),
-    "validate": $((T13 - T12))
-  },
-  "total_ms": $((T13 - T0))
-}
-EOF
+export CMP_FILTER_MS="null"
+export CMP_CLEAN_TRANSFORM_MS="$(( (T1 - T0) + (T3 - T2) + (T7 - T6) ))"
+export CMP_EXPORT_GEOPARQUET_MS="$((T9 - T8))"
+export CMP_EXPORT_PMTILES_MS="$((T11 - T10))"
+export CMP_SQL_POSTPROCESS_MS="$((T5 - T4))"
+export CMP_VALIDATE_MS="$((T13 - T12))"
+export CMP_TOTAL_IN_CONTAINER_MS="$((T13 - T0))"
+export REQ_GENERATE_GEOPARQUET_MATCHED="true"
+export REQ_GENERATE_PMTILES_MATCHED="true"
+export REQ_FILTER_CLEAN_CONFIRMED_MATCHED="true"
+export REQ_FILTER_CLEAN_CONFIRMED_REASON="No dedicated prefilter; filtering in osm2pgsql flex style"
+export REQ_SQL_POSTPROCESS_MATCHED="true"
+# shellcheck source=/dev/null
+source /workspace/pipelines/lib/write-comparison.sh
 
 echo "[pipeline-b1] done"

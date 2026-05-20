@@ -115,16 +115,21 @@ fi
 
 T3=$(date +%s%3N)
 
-cat >"${TIMINGS_JSON}" <<EOF
-{
-  "pipeline": "${PIPELINE_ID}",
-  "dataset": "${DATASET_NAME}",
-  "steps_ms": {
-    "planetiler_pmtiles": $((T1 - T0)),
-    "validate": $((T3 - T2))
-  },
-  "total_ms": $((T3 - T0))
-}
-EOF
+export CMP_FILTER_MS="null"
+export CMP_CLEAN_TRANSFORM_MS="null"
+export CMP_EXPORT_GEOPARQUET_MS="null"
+export CMP_EXPORT_PMTILES_MS="$((T1 - T0))"
+export CMP_SQL_POSTPROCESS_MS="null"
+export CMP_VALIDATE_MS="$((T3 - T2))"
+export CMP_TOTAL_IN_CONTAINER_MS="$((T3 - T0))"
+export REQ_GENERATE_GEOPARQUET_MATCHED="false"
+export REQ_GENERATE_GEOPARQUET_REASON="Planetiler does not emit GeoParquet"
+export REQ_GENERATE_PMTILES_MATCHED="true"
+export REQ_FILTER_CLEAN_CONFIRMED_MATCHED="true"
+export REQ_FILTER_CLEAN_CONFIRMED_REASON="Filtering embedded in Planetiler YAML; confirmed via validation"
+export REQ_SQL_POSTPROCESS_MATCHED="false"
+export REQ_SQL_POSTPROCESS_REASON="Pipeline has no SQL/PostGIS stage"
+# shellcheck source=/dev/null
+source /workspace/pipelines/lib/write-comparison.sh
 
 echo "[${PIPELINE_ID}] done"

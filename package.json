@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "orchestrate": "bun run orchestrator/src/index.ts run --dataset berlin",
+    "orchestrate:germany": "bun run orchestrator/src/index.ts run --dataset germany",
     "prepare:berlin": "bun run orchestrator/src/index.ts prepare --dataset berlin",
     "prepare:germany": "bun run orchestrator/src/index.ts prepare --dataset germany",
     "summary": "bun run orchestrator/src/index.ts summary",
+    "run:background": "bash scripts/run-benchmark-background.sh",
+    "status:benchmark": "bash scripts/benchmark-status.sh",
     "typecheck": "bunx tsc --noEmit"
   },
   "dependencies": {

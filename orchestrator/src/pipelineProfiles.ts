@@ -7,6 +7,8 @@ export const PMTILES_STEP_KEYS: Record<string, string> = {
   "osm2pgsql-postgis-prefilter": "export_pmtiles",
   "osm2pgsql-postgis-prefilter-osmfilter": "export_pmtiles",
   "planetiler-playgrounds": "planetiler_pmtiles",
+  "cosmo-playgrounds-dual-pass": "export_pmtiles",
+  "cosmo-playgrounds-single-pass": "export_pmtiles",
 };
 
 export const PARQUET_STEP_KEYS: Record<string, string | undefined> = {
@@ -15,6 +17,8 @@ export const PARQUET_STEP_KEYS: Record<string, string | undefined> = {
   "osm2pgsql-postgis-prefilter": "export_geoparquet",
   "osm2pgsql-postgis-prefilter-osmfilter": "export_geoparquet",
   "planetiler-playgrounds": undefined,
+  "cosmo-playgrounds-dual-pass": "export_geoparquet",
+  "cosmo-playgrounds-single-pass": "export_geoparquet",
 };
 
 const DELIVERY_HOW: Record<string, string> = {
@@ -28,6 +32,10 @@ const DELIVERY_HOW: Record<string, string> = {
     "`osmconvert` (PBF→o5m) → osmfilter → osm2pgsql flex → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
   "planetiler-playgrounds":
     "Planetiler custommap YAML (single JVM pass) → native PMTiles writer → `playgrounds.pmtiles`.",
+  "cosmo-playgrounds-dual-pass":
+    "Two `cosmo convert` passes: native GeoParquet + GeoJSONL → tippecanoe → `playgrounds.pmtiles`.",
+  "cosmo-playgrounds-single-pass":
+    "One `cosmo convert` → GeoJSONL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
 };
 
 const PARQUET_HOW: Record<string, string> = {
@@ -41,6 +49,10 @@ const PARQUET_HOW: Record<string, string> = {
     "GeoPandas reads GeoJSONSeq, writes GeoParquet via PyArrow (GDAL Parquet driver not assumed).",
   "planetiler-playgrounds":
     "Not supported — Planetiler does not emit Parquet; this benchmark does not add a second OSM pass to synthesize it.",
+  "cosmo-playgrounds-dual-pass":
+    "Native cosmo GeoParquet (`export_geoparquet` step).",
+  "cosmo-playgrounds-single-pass":
+    "GeoPandas reads GDAL-normalized GeoJSONSeq, writes GeoParquet via PyArrow (single cosmo OSM read).",
 };
 
 const SERVER_NOTES: Record<string, string> = {
@@ -54,6 +66,10 @@ const SERVER_NOTES: Record<string, string> = {
     "Same as B2 but prefilter is osmconvert + osmfilter (no Osmium); needs extra disk for full `.o5m` before filtering.",
   "planetiler-playgrounds":
     "Single JVM + `planetiler.jar`; heap scales with extract size (~0.5× PBF recommended, 1 GiB floor in script). No DB.",
+  "cosmo-playgrounds-dual-pass":
+    "Rust `cosmo` binary (compiled in image). No DB. Two full PBF scans for Parquet + tiles.",
+  "cosmo-playgrounds-single-pass":
+    "Rust `cosmo` + GDAL + GeoPandas + tippecanoe. No DB. One PBF scan; GDAL/GeoPandas add moving parts vs dual-pass native Parquet.",
 };
 
 const CI_NOTES: Record<string, string> = {
@@ -67,6 +83,10 @@ const CI_NOTES: Record<string, string> = {
     "Same as B2; Germany needs enough disk for a full `.o5m` copy during `osmconvert` (osmfilter requires a seekable file).",
   "planetiler-playgrounds":
     "Docker on GHA: set `PLANETILER_JAVA_OPTS` if the default heap hits runner limits. Germany may need a larger runner. Netlify: host outputs only.",
+  "cosmo-playgrounds-dual-pass":
+    "First image build compiles cosmo from source. Berlin is fine on typical runners; Germany needs RAM/disk. Netlify: host outputs only.",
+  "cosmo-playgrounds-single-pass":
+    "Same image as dual-pass. Compare in-container totals vs dual-pass to see one-read vs two-read tradeoff.",
 };
 
 function fmtMs(ms: number): string {
@@ -77,7 +97,11 @@ function stepTimeMs(p: PipelineRunResult, stepKey: string | undefined): number |
   if (!stepKey) {
     return undefined;
   }
-  const raw = p.stepTimings?.steps_ms?.[stepKey];
+  const steps = p.stepTimings?.steps_ms;
+  if (!steps) {
+    return undefined;
+  }
+  const raw = steps[stepKey as keyof typeof steps];
   return typeof raw === "number" && Number.isFinite(raw) ? raw : undefined;
 }
 
