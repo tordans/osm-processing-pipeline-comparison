@@ -2,6 +2,33 @@
 
 This repository benchmarks alternative OpenStreetMap processing pipelines for extracting playground-related data and producing comparable outputs.
 
+## Why this benchmark exists
+
+Many OpenStreetMap community projects need more than a raw extract. They need a repeatable way to turn OSM data into a small, documented, **opinionated dataset** for a specific use case. This repository uses playground data as the example: it compares processing pipelines that can regularly transform an OSM PBF extract into artifacts that are ready for maps and analysis.
+
+The target is **regular, not minute-by-minute processing**. A good pipeline should be able to run about once per day or once per week, ideally in infrastructure that community maintainers can already use (for free), such as GitHub Actions or a similar CI environment.
+
+### Opinionated Dataset
+
+OSM Data gets more detailed and more complex every day. This calls for community driven and open source interpretatoin of the "raw" date in OSM for specific use cases. In ean ideal setup, those community projects will be able to create their vector maps (pmtiles) and at the same time create processed data ready to be used for data analysis (geoparquet). We should encorage opinionated dataset for specific domains that documents and implements answers to questions like _Which OSM tags, keys, and values are relevant?_, _How should different tag combinations be interpreted?_, _Which derived attributes should be added for the map or analysis use case?_, _Where does raw OSM detail need to be normalized, grouped, or counted?_
+
+For playgrounds, a simple example is `play_equipment_count`: individual play equipment features can be counted for each playground area, so a map or analysis can show which playgrounds have the most mapped equipment. That small enrichment step is part of the dataset definition, not just a rendering trick.
+
+### Two Outputs, One Dataset
+
+The benchmark focuses on producing two artifacts from the same interpreted source data:
+
+- **PMTiles** for rendering maps.
+- **GeoParquet** for data analysis.
+
+These outputs should describe the same playground dataset as closely as possible. They are different physical formats for different consumers, not separate interpretations of OSM.
+
+### What the current results show
+
+The current comparison evaluates pipelines built around tools such as `Osmium`, `osm2pgsql flex`, `PostGIS`, `GDAL`, `GeoPandas`, `tippecanoe`, `Planetiler`, and `cosmo`. For the current best pipeline and the detailed pipeline results, see [`results/summary.md`](results/summary.md).
+
+At the moment, the `osm2pgsql-postgis-prefilter` pipeline is the main PostGIS reference pipeline: it prefilters the source OSM PBF with `osmium tags-filter`, imports the reduced extract with `osm2pgsql flex`, runs SQL enrichment in `PostGIS`, and exports both `GeoParquet` and `PMTiles`. It offers strong flexibility for opinionated processing because SQL postprocessing can express domain-specific enrichment clearly. The benchmark also shows where this traditional toolchain is not yet optimized for directly producing small, static `PMTiles` and `GeoParquet` files as final artifacts.
+
 ## What this project evaluates
 
 - End-to-end runtime and per-step runtime
