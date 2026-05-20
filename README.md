@@ -10,7 +10,9 @@ The target is **regular, not minute-by-minute processing**. A good pipeline shou
 
 ### Opinionated Dataset
 
-OSM Data gets more detailed and more complex every day. This calls for community driven and open source interpretatoin of the "raw" date in OSM for specific use cases. In ean ideal setup, those community projects will be able to create their vector maps (pmtiles) and at the same time create processed data ready to be used for data analysis (geoparquet). We should encorage opinionated dataset for specific domains that documents and implements answers to questions like _Which OSM tags, keys, and values are relevant?_, _How should different tag combinations be interpreted?_, _Which derived attributes should be added for the map or analysis use case?_, _Where does raw OSM detail need to be normalized, grouped, or counted?_
+OSM data becomes more detailed and more complex every day. That creates a need for community-driven, open source interpretations of OSM data for specific use cases. In an ideal setup, community projects can use the same processing logic to create both vector maps (`PMTiles`) and analysis-ready data (`GeoParquet`).
+
+This repository encourages **opinionated datasets** for specific domains: datasets that document and implement clear answers to questions like _Which OSM tags, keys, and values are relevant?_, _How should different tag combinations be interpreted?_, _Which derived attributes should be added for the map or analysis use case?_, and _Where does raw OSM detail need to be normalized, grouped, or counted?_
 
 For playgrounds, a simple example is `play_equipment_count`: individual play equipment features can be counted for each playground area, so a map or analysis can show which playgrounds have the most mapped equipment. That small enrichment step is part of the dataset definition, not just a rendering trick.
 
