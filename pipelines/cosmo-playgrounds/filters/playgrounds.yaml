@@ -1,0 +1,10 @@
+# Playground extract — matches osmium tags-filter: nwr/amenity=playground, nwr/playground=*
+table:
+  name: playgrounds
+  filter: "amenity=playground | playground=*"
+  geometry:
+    node: true
+    way: linestring
+    closed_way: polygon
+    relation: false
+  columns: []

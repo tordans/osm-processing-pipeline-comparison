@@ -17,6 +17,10 @@ Compare pipeline variants on equal conditions for OSM playground extraction and 
   - explicit `-t_srs EPSG:4326` on conversion
   - identical tippecanoe tile resolution flags (`--full-detail`, `--low-detail`, `--minimum-detail` = 12) across those pipelines
 - **Planetiler vs tippecanoe:** MVT bytes and vertex handling differ; PMTiles from Planetiler are not expected to match tippecanoe output bit-for-bit.
+- **Cosmo variants (paired comparison):**
+  - `cosmo-playgrounds-dual-pass`: two `cosmo convert` runs — native GeoParquet plus GeoJSONL for tippecanoe; relations omitted in filter (`relation: false`).
+  - `cosmo-playgrounds-single-pass`: one `cosmo convert` to GeoJSONL, then the same GDAL GeoJSONSeq + GeoPandas Parquet + tippecanoe path as `osmium-gdal-tippecanoe` (Parquet is not cosmo-native in this variant).
+  - Summary compares dual-pass vs single-pass wall times and cosmo OSM read totals (`export_geoparquet` + `cosmo_export_geojsonl` vs `cosmo_extract`).
 
 ## Measurements
 
