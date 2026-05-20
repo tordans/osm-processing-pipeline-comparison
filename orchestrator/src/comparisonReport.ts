@@ -1,12 +1,19 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { pipelineLink } from "./pipelineDiagrams";
 import type { ComparisonArtifact, PipelineRunResult, RequirementStatus } from "./types";
 
+/** Format milliseconds as M:SS, rounded to the nearest second. */
 export function fmtMs(ms: number | null | undefined): string {
   if (ms === null || ms === undefined || !Number.isFinite(ms)) {
     return "—";
   }
-  return `${(ms / 1000).toFixed(2)}s`;
+  const totalSec = Math.round(ms / 1000);
+  const absSec = Math.abs(totalSec);
+  const minutes = Math.floor(absSec / 60);
+  const seconds = absSec % 60;
+  const formatted = `${minutes}:${String(seconds).padStart(2, "0")}`;
+  return totalSec < 0 ? `-${formatted}` : formatted;
 }
 
 export function fmtBytes(n: number | null | undefined): string {
@@ -60,8 +67,8 @@ export function buildCanonicalTimingsTable(
     "",
     "All values come from each pipeline’s `comparison.json` (canonical schema). `—` means the step is not applicable for that pipeline.",
     "",
-    "| Pipeline | Dataset | Input PBF | Filter | Clean/transform | GeoParquet | PMTiles | SQL postprocess | Validate | In-container total | Build | Container | Total |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Pipeline | Dataset | Filter | Clean/transform | GeoParquet | PMTiles | SQL postprocess | Validate | In-container total | Build | Container | Total |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
   ];
 
   for (const p of pipelines) {
@@ -69,7 +76,7 @@ export function buildCanonicalTimingsTable(
     const t = c?.timingsMs;
     const ds = c?.dataset;
     lines.push(
-      `| ${p.id} | ${ds?.name ?? "—"} | ${ds?.inputPath ? escapeCell(ds.inputPath) : "—"} | ${fmtMs(t?.filter ?? null)} | ${fmtMs(t?.cleanTransform ?? null)} | ${fmtMs(t?.exportGeoParquet ?? null)} | ${fmtMs(t?.exportPmtiles ?? null)} | ${fmtMs(t?.sqlPostprocess ?? null)} | ${fmtMs(t?.validate ?? null)} | ${fmtMs(t?.totalInContainer ?? null)} | ${fmtMs(p.buildMs)} | ${fmtMs(p.containerMs)} | ${fmtMs(p.totalMs)} |`,
+      `| ${pipelineLink(p.id)} | ${ds?.name ?? "—"} | ${fmtMs(t?.filter ?? null)} | ${fmtMs(t?.cleanTransform ?? null)} | ${fmtMs(t?.exportGeoParquet ?? null)} | ${fmtMs(t?.exportPmtiles ?? null)} | ${fmtMs(t?.sqlPostprocess ?? null)} | ${fmtMs(t?.validate ?? null)} | ${fmtMs(t?.totalInContainer ?? null)} | ${fmtMs(p.buildMs)} | ${fmtMs(p.containerMs)} | ${fmtMs(p.totalMs)} |`,
     );
   }
 
@@ -94,7 +101,7 @@ export function buildRequirementsTable(
     const q = c?.quality;
     const a = c?.artifacts;
     lines.push(
-      `| ${p.id} | ${reqCell(r?.generateGeoParquet)} | ${reqCell(r?.generatePmtiles)} | ${reqCell(r?.filterCleanConfirmed)} | ${reqCell(r?.sqlPostprocessCleanConfirmed)} | ${q?.validationOk === true ? "yes" : q?.validationOk === false ? "no" : "—"} | ${q?.featureCount ?? "—"} | ${fmtBytes(a?.geoParquetBytes)} | ${fmtBytes(a?.pmtilesBytes)} |`,
+      `| ${pipelineLink(p.id)} | ${reqCell(r?.generateGeoParquet)} | ${reqCell(r?.generatePmtiles)} | ${reqCell(r?.filterCleanConfirmed)} | ${reqCell(r?.sqlPostprocessCleanConfirmed)} | ${q?.validationOk === true ? "yes" : q?.validationOk === false ? "no" : "—"} | ${q?.featureCount ?? "—"} | ${fmtBytes(a?.geoParquetBytes)} | ${fmtBytes(a?.pmtilesBytes)} |`,
     );
   }
 

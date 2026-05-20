@@ -8,6 +8,7 @@ import {
   loadAllComparisons,
 } from "./comparisonReport";
 import { RESULTS_RUNS_DIR, RESULTS_SUMMARY_PATH } from "./config";
+import { buildPipelineFlowsChapter, pipelineLink } from "./pipelineDiagrams";
 import type { BenchmarkRunReport, PipelineRunResult } from "./types";
 
 const B2_REFERENCE_ID = "osm2pgsql-postgis-prefilter";
@@ -58,7 +59,7 @@ function fmtVsRef(refMs: number, otherMs: number): string {
     return "—";
   }
   if (deltaMs === 0) {
-    return "0s (baseline)";
+    return "0:00 (baseline)";
   }
   if (deltaMs < 0) {
     return `${fmtMs(-deltaMs)} faster; ${pctPhrase}`;
@@ -108,7 +109,7 @@ function buildVsB2Section(
 
   for (const p of ordered) {
     if (p.id === B2_REFERENCE_ID) {
-      lines.push(`| ${p.id} | baseline | baseline | baseline |`);
+      lines.push(`| ${pipelineLink(p.id)} | baseline | baseline | baseline |`);
       continue;
     }
     const totalCell =
@@ -122,7 +123,7 @@ function buildVsB2Section(
     } else if (p.status === "ok") {
       procCell = "— (missing timings)";
     }
-    lines.push(`| ${p.id} | ${totalCell} | ${containerCell} | ${procCell} |`);
+    lines.push(`| ${pipelineLink(p.id)} | ${totalCell} | ${containerCell} | ${procCell} |`);
   }
 
   lines.push("");
@@ -133,7 +134,12 @@ function buildVsB2Section(
   );
   lines.push("");
 
-  const header = ["Step", ...pipelines.filter((p) => p.id !== B2_REFERENCE_ID).map((p) => p.id)];
+  const header = [
+    "Step",
+    ...pipelines
+      .filter((p) => p.id !== B2_REFERENCE_ID)
+      .map((p) => pipelineLink(p.id)),
+  ];
   lines.push(`| ${header.join(" | ")} |`);
   lines.push(`| ${header.map(() => "---").join(" | ")} |`);
 
@@ -320,7 +326,7 @@ function buildCosmoVariantComparisonSection(
     "",
     "**Dual-pass:** two `cosmo convert` runs (native GeoParquet + GeoJSONL) then tippecanoe. **Single-pass:** one `cosmo convert` → `ogr2ogr` GeoJSONSeq → GeoPandas Parquet + tippecanoe.",
     "",
-    "| Metric | dual-pass | single-pass | dual vs single |",
+    `| Metric | ${pipelineLink(dual.id, "dual-pass")} | ${pipelineLink(single.id, "single-pass")} | dual vs single |`,
     "| --- | --- | --- | --- |",
   ];
 
@@ -355,7 +361,9 @@ function buildCosmoVariantComparisonSection(
   lines.push("");
   lines.push("### Step breakdown (in-container)");
   lines.push("");
-  lines.push("| Step | dual-pass | single-pass | dual vs single |");
+  lines.push(
+    `| Step | ${pipelineLink(dual.id, "dual-pass")} | ${pipelineLink(single.id, "single-pass")} | dual vs single |`,
+  );
   lines.push("| --- | --- | --- | --- |");
 
   for (const stepKey of CANONICAL_STEP_KEYS) {
@@ -386,7 +394,7 @@ function failuresSection(pipelines: PipelineRunResult[]): string[] {
   }
   const blocks: string[] = ["## Failures", ""];
   for (const p of failed) {
-    blocks.push(`### ${p.id}`, "");
+    blocks.push(`### ${pipelineLink(p.id)}`, "");
     blocks.push(`- **Orchestrator error:** ${p.error ?? "unknown"}`);
     blocks.push("");
     if (p.stderrTail) {
@@ -439,8 +447,8 @@ export async function generateSummaryFromRuns(): Promise<void> {
     crossCheck = [
       "## Cross-pipeline sanity (feature counts)",
       "",
-      `- **osmium-gdal-tippecanoe:** ${aFeatures} features`,
-      `- **osm2pgsql (B1, representative):** ${b1Features} features`,
+      `- **${pipelineLink("osmium-gdal-tippecanoe")}:** ${aFeatures} features`,
+      `- **${pipelineLink("osm2pgsql-postgis-direct", "osm2pgsql B1")}:** ${b1Features} features`,
       `- **Delta:** ${aFeatures - b1Features} (${pct}% vs B1). Different OSM-to-geometry assembly (GDAL OSM driver vs osm2pgsql flex) commonly yields small count differences; B1 and B2 should match when the extract is equivalent.`,
       "",
     ].join("\n");
@@ -452,7 +460,7 @@ export async function generateSummaryFromRuns(): Promise<void> {
     if (Array.isArray(w) && w.length > 0) {
       for (const item of w) {
         if (typeof item === "string" && item.trim()) {
-          warningLines.push(`- **${p.id}:** ${item.trim()}`);
+          warningLines.push(`- **${pipelineLink(p.id)}:** ${item.trim()}`);
         }
       }
     }
@@ -479,11 +487,14 @@ export async function generateSummaryFromRuns(): Promise<void> {
     "- **Build** is `docker build` time on the host (one-time per image change).",
     "- **Container** is wall time for `docker run`.",
     "- **In-container total** is script wall time inside the container.",
+    "- **Durations** use `M:SS` (minutes:seconds), rounded to the nearest second.",
+    "- **Pipeline** names in tables link to [Pipeline flows](#pipeline-flows) below.",
     "",
     ...buildDatasetSection(comparisons),
     ...buildCanonicalTimingsTable(pipelines, comparisons),
     ...buildRequirementsTable(pipelines, comparisons),
     "",
+    ...buildPipelineFlowsChapter(pipelines.map((p) => p.id)),
     ...buildVsB2Section(pipelines, b2, comparisons),
     ...buildB2VsOsmfilterSection(b2, b2Osmfilter, comparisons),
     ...buildCosmoVariantComparisonSection(cosmoDual, cosmoSingle, comparisons),
