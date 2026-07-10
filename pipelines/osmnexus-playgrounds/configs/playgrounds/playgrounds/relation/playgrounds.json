@@ -1,8 +1,0 @@
-{
-  "condition": {
-    "or": [
-      { "tag": "leisure", "eq": "playground" },
-      { "tag": "playground", "exists": true }
-    ]
-  }
-}

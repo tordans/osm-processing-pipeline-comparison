@@ -1,4 +1,0 @@
-{
-  "table": "playgrounds",
-  "osm_fields": ["name", "leisure", "playground"]
-}
