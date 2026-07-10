@@ -1,104 +1,112 @@
-# Benchmark Methodology
+# Benchmark Methodology — TILDA roads/bikelanes processing
 
 ## Goal
 
-Compare pipeline variants on equal conditions for OSM playground extraction and output generation.
+Compare OSM processing pipelines on a **realistic classification workload**: tilda-geo's
+`roads_bikelanes` topic — 26 bikelane categories + 33 road categories, side-splitting of ways into
+left/right objects, lifecycle transforms, sanitizers, and multi-level attribute derivation
+(surface/smoothness/oneway/traffic modes).
+
+The predecessor playground benchmark (archived: [archive/playgrounds-2026-07/](archive/playgrounds-2026-07/))
+was too simple — two tag checks — so it measured I/O and toolchain overhead rather than processing
+capability. This benchmark exercises the part that distinguishes the tools.
+
+## The contenders
+
+Two implementations of the same processing, one per engine:
+
+- **osm2pgsql flex + Lua** — tilda-geo's production code
+  ([FixMyBerlin/tilda-geo](https://github.com/FixMyBerlin/tilda-geo) `processing/topics/`), vendored
+  unmodified except one marked adaptation (pseudo-tag CSV enrichment stubbed; see Deviations).
+- **OSMnexus** — Rust streaming classifier ([rush42/OSMnexus](https://github.com/rush42/OSMnexus),
+  pinned `e716644`, AGPL-3.0) with its bundled `configs/tilda` (a JSON-rules reimplementation of the
+  same topic), vendored verbatim and complete.
+
+## Pipelines
+
+| id | engine | flow |
+| --- | --- | --- |
+| `roads-bikelanes-osm2pgsql-prefilter-osmium` | osm2pgsql | osmium `w/highway` prefilter (tilda production setup) → flex import → SQL offset → exports |
+| `roads-bikelanes-osm2pgsql-direct` | osm2pgsql | raw PBF straight into flex import (`filter=null`) → SQL offset → exports |
+| `roads-bikelanes-osmnexus-postgis` | OSMnexus | raw PBF, filters while reading (`filter=null`) → PostGIS → SQL offset (adapted) → exports |
+| `roads-bikelanes-osmnexus-geojsonseq` | OSMnexus | raw PBF, filters while reading → streamed NDJSON → exports directly (no DB, no offset) |
+
+An osmconvert/osmfilter prefilter variant is intentionally absent — the playground benchmark settled
+that the o5m conversion costs more than the filtering saves (Germany: 308 s vs osmium's 72 s).
 
 ## Fairness rules
 
-- Same input dataset per comparison run
-- Same machine and Docker runtime
-- Sequential execution (no overlapping pipeline runs)
-- **OSM filter (opinionated dataset):** nodes, ways, and relations with `leisure=playground` or any `playground=*` tag (Osmium: `nwr/leisure=playground nwr/playground=*`)
-- **Output contract:** the **target** for comparable pipelines is **PMTiles** (`playgrounds.pmtiles`) **and** **GeoParquet** (`playgrounds.parquet`). Pipelines that cannot produce an artifact **declare** the gap in `validation.json` (e.g. `lacking`) and remain valid if they meet their own checks (no second OSM pass added only to hide a gap).
-- Validation rules are defined per pipeline where needed (e.g. Planetiler does not emit a per-OSM-element `feature_count` comparable to GeoJSONSeq line counts; it may use `null` plus a note).
-- Capability flags for unsupported steps
-- Shared geometric serialization policy for NDJSON fed to tippecanoe (pipelines that use tippecanoe):
-  - `ogr2ogr` GeoJSONSeq with `COORDINATE_PRECISION=7` and `RFC7946=YES` (7 decimals ≈ OSM’s 1e-7° node resolution; PostGIS stores float8 but does not add meaningful digits beyond that)
-  - explicit `-t_srs EPSG:4326` on conversion
-  - identical tippecanoe tile resolution flags (`--full-detail`, `--low-detail`, `--minimum-detail` = 12) across those pipelines
-- **Planetiler vs tippecanoe:** MVT bytes and vertex handling differ; PMTiles from Planetiler are not expected to match tippecanoe output bit-for-bit.
-- **Cosmo variants (paired comparison):**
-  - `cosmo-playgrounds-dual-pass`: two `cosmo convert` runs — native GeoParquet plus GeoJSONL for tippecanoe; relations omitted in filter (`relation: false`).
-  - `cosmo-playgrounds-single-pass`: one `cosmo convert` to GeoJSONL, then the same GDAL GeoJSONSeq + GeoPandas Parquet + tippecanoe path as `osmium-gdal-tippecanoe` (Parquet is not cosmo-native in this variant).
-  - Summary compares dual-pass vs single-pass wall times and cosmo OSM read totals (`export_geoparquet` + `cosmo_export_geojsonl` vs `cosmo_extract`).
+- Same input dataset (Berlin / Germany Geofabrik extracts), same machine, Docker, sequential runs.
+- Each tool runs its **natural workflow**: osm2pgsql keeps tilda's osmium prefilter (and a direct
+  variant); OSMnexus filters while reading — no redundant prefilter in front of it.
+- Shared serialization: GeoJSONSeq, `COORDINATE_PRECISION=7`, RFC7946, EPSG:4326; identical
+  tippecanoe flags (`-zg`, detail 12, `--drop-densest-as-needed`, layer `bikelanes`).
+- Output contract per pipeline: `bikelanes.parquet` + `bikelanes.pmtiles` from the `bikelanes`
+  table/stream (export properties: `id`, `osm_id`, `category`, `name`, `oneway`, `surface`,
+  `smoothness`, `width`, `side`); `roads` participates via row/category counts in `validation.json`.
+  Roads counts are informational only: the implementations slice the road taxonomy differently
+  (tilda splits `roads` / `roadsPathClasses` / `bikeSuitability`; the OSMnexus roads topic keeps one
+  table with its own category set), so roads row counts are not directly comparable — Berlin:
+  tilda 107 104 + 162 921 path classes vs OSMnexus 344 676.
+- Pipelines that cannot perform a stage declare it (`REQ_SQL_POSTPROCESS_MATCHED=false` for the
+  no-DB variant: geometries are not offset).
 
-## Export semantics (feature identity)
+## The SQL stage (geometry offset)
 
-Comparable pipelines export **each OSM object once**, keyed by (`osm_type`, `osm_id`):
+tilda-geo's post-import step (`2_move_bikelanes.sql`) offsets sided cycling infrastructure away from
+the road center line — `ST_OffsetCurve` in EPSG:5243 by `side_sign × road_width/2`, then `ST_Reverse`
+to restore per-side line direction. The step itself is cheap; its significance is that it **requires a
+PostGIS path** for those segments.
 
-- nodes → Point
-- open ways → LineString; closed target ways → Polygon
-- relations → (Multi)Polygon assembled from member ways where possible
-- attribute columns: `osm_id`, `osm_type`, `name`, `leisure`, `playground`, `play_equipment_count`
-- **Enrichment:** `leisure=playground` polygons carry `play_equipment_count` (count of intersecting `playground=*` features); all other features carry `null`
+- osm2pgsql pipelines: verbatim tilda SQL; the `offset` value is computed in Lua during import.
+- OSMnexus PostGIS pipeline: the config cannot do arithmetic, so the offset is computed in SQL from
+  `_side` sign × tilda's road-width defaults keyed by the derived road class (parent width tags are
+  not available). Same OffsetCurve/Reverse. Timing attribution differs slightly (offset computation
+  in `sqlPostprocess` instead of `cleanTransform`); offset magnitudes may differ where width tags
+  existed on the parent road.
 
-History: until 2026-07 the filter used `amenity=playground` (a tag real playgrounds do not use — Berlin matched 18 objects), and the osm2pgsql pipelines exported closed playground ways twice (LineString + Polygon). Both were fixed; runs before that are not comparable to current runs.
+## Parity (soft), measured on Berlin
 
-### Known feature-count differences (Berlin reference: ~10 627)
+`scripts/compare-bikelanes.py` compares two bikelanes exports (category counts with case
+normalization, id-set diff, attribute agreement, geometry length deltas). The OSMnexus tilda config
+was built from an older tilda-geo state, so **small drift is expected and accepted**; the benchmark
+compares processing performance, not implementation identity.
 
-| Pipeline | Features | Why it differs |
-| --- | --- | --- |
-| osm2pgsql family (B1/B2/B2-osmfilter) | 10 627 | Reference. Drops one relation whose multipolygon `osm2pgsql` cannot assemble. |
-| osmnexus (both variants) | 10 628 | Recovers that broken multipolygon relation geometrically (`ST_BuildArea` over merged member lines). |
-| cosmo (both variants) | 10 598 | Exports no relation features (`relation: false` in its filter). |
-| osmium-gdal-tippecanoe | 10 623 | Misses 4 relations of non-multipolygon types (e.g. `type=site`), which GDAL routes to the unexported `other_relations` layer. Until 2026-07 it also exported every *referenced* tagged object from the osmium prefilter (gates, access nodes on playground ways — 11 789 total); fixed with a per-layer tag gate (`-where` on `leisure`/`playground` via a vendored `osmconf.ini`). |
+Measured (osm2pgsql-prefilter vs osmnexus-postgis, Berlin):
 
-### OSMnexus specifics
+- id-set drift **0.35%** (38 898 vs 39 027 features; divergence concentrated in the
+  `needsClarification` catch-all)
+- **category agreement 100.00%** on all 38 895 shared ids; `oneway` and `side`: 0 mismatches
+- known skew: `smoothness` differs on 19% of shared ids (deriver fallback chains evolved in
+  tilda-geo; mostly values where the older chain yields none); 4 `surface` cases where tilda's
+  sanitizer drops junk values that OSMnexus keeps
+- offset geometry length differences: p95 = 1.9% (width-default vs parent-width, see above)
 
-- Built from source at a pinned rev with a vendored patch that emits standalone classified nodes (upstream drops nodes not referenced by kept ways; see [rush42/OSMnexus#1](https://github.com/rush42/OSMnexus/issues/1)).
-- Stores node coordinates as `f32`: point positions deviate up to ~0.21 m from the reference, so the 7-decimal serialization policy is not fully met for points.
-- Relation inner/outer roles are not preserved; holes are inferred from ring nesting (verified equivalent on all Berlin playground relations).
+## Deviations from production (all marked in code)
 
-## Measurements
+1. **Pseudo-tag enrichment stubbed** (osm2pgsql side): tilda production enriches `_is_sidepath` /
+   `_in_settlement_area` from TS-generated CSVs; stubbed to no-ops for standalone runnability.
+   OSMnexus has no equivalent (tags-only engine), so both sides run tag-only logic.
+2. **Offset computed in SQL** for the OSMnexus PostGIS variant (see above).
+3. **OSMnexus patches** (vendored, applied at image build):
+   `standalone-nodes.patch` (emit standalone classified nodes; upstream
+   [rush42/OSMnexus#1](https://github.com/rush42/OSMnexus/issues/1); a no-op for these way-only
+   topics, kept for consistency) and `geojsonseq-output.patch` (streaming newline-delimited GeoJSON
+   with one whole-way feature per tag row — upstream's `--output geojson` builds one in-memory
+   FeatureCollection with per-edge-segment features, which neither streams nor scales).
 
-For each pipeline run:
+## Measurements & infrastructure
 
-- step runtime (ms)
-- total runtime (ms)
-- command exit code
-- output sizes (`pmtiles_bytes`, `parquet_bytes` where applicable)
-- feature count checks where comparable
-- validation pass/fail
-
-For `osm2pgsql` variants comparison:
-
-- Compare direct input vs prefilter:
-  - end-to-end runtime
-  - prefilter overhead
-  - import and SQL runtime deltas
-
-## Warmup policy
-
-- Optional one warmup run per pipeline
-- Measured run is recorded separately
-
-## Non-goals for this phase
-
-- Installation/setup timing is documented but not measured in benchmark totals.
+Unchanged from the previous benchmark: per-step timings (`filter`, `cleanTransform`,
+`sqlPostprocess`, `exportGeoParquet`, `exportPmtiles`, `validate`) via `comparison.json`
+(`pipelines/lib/write-comparison.sh`); orchestrator (`bun run orchestrate[:germany]`) with docker
+build/run wall times; **result cache** skips pipelines whose directory + input fingerprint is
+unchanged (reused entries marked in the summary); background runner for Germany
+(`bun run run:background germany`). `results/summary.md` is regenerated from the latest run.
 
 ## Failure criteria
 
-- Missing **required** output files **for that pipeline’s declared contract** (e.g. PMTiles must exist for all pipelines in this benchmark)
-- Zero extracted features when the pipeline claims support
-- Missing required fields for that pipeline’s validation
-- Failed validation commands
-
-## Canonical run artifact (`comparison.json`)
-
-Every pipeline writes the same schema to `data/output/<pipeline-id>/<dataset>/comparison.json`:
-
-- `dataset`: `{ name, inputPath, sourceUrl }` — explicit dataset used for the run
-- `timingsMs`: `filter`, `cleanTransform`, `exportGeoParquet`, `exportPmtiles`, `sqlPostprocess`, `validate`, `totalInContainer` (null when not applicable)
-- `requirements`: four core checks with `matched` and `reasonIfNotMatched` when false
-- `artifacts` and `quality` (validation result, feature count, notes)
-
-`step_timings.json` mirrors the canonical step keys for backward compatibility.
-
-## Summary generation
-
-`results/summary.md` is generated by reading each pipeline’s `comparison.json` (timings and requirements) plus orchestrator wall-clock fields from `results/runs/*.json`. It includes:
-
-- dataset used (name, path, source URL)
-- comparable timings and core requirement table
-- B2 reference deltas and paired comparisons (B1/B2, Osmium vs osmfilter, Cosmo variants)
+- missing required artifacts for the pipeline's declared contract
+- zero bikelanes features, or missing categories (fewer than 20 of the 26)
+- failed validation commands
+- unexplained parity drift beyond low single digits

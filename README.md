@@ -1,6 +1,8 @@
 # OSM Processing Pipeline Benchmark
 
-This repository benchmarks alternative OpenStreetMap processing pipelines for extracting playground-related data and producing comparable outputs.
+This repository benchmarks alternative OpenStreetMap processing pipelines on a realistic classification workload: tilda-geo's **roads/bikelanes** processing (26 bikelane + 33 road categories, side-splitting, attribute derivation), implemented once in `osm2pgsql flex + Lua` (the production original) and once in `OSMnexus` (a Rust streaming classifier with JSON rules).
+
+> An earlier iteration benchmarked a much simpler playground extraction across 9 pipelines (incl. GDAL, Planetiler, cosmo). It turned out to measure I/O rather than processing capability and is archived with all findings under [`results/archive/playgrounds-2026-07/`](results/archive/playgrounds-2026-07/).
 
 ## Why this benchmark exists
 
@@ -14,9 +16,7 @@ OSM data becomes more detailed and more complex every day. That creates a need f
 
 This repository encourages **opinionated datasets** for specific domains: datasets that document and implement clear answers to questions like _Which OSM tags, keys, and values are relevant?_, _How should different tag combinations be interpreted?_, _Which derived attributes should be added for the map or analysis use case?_, and _Where does raw OSM detail need to be normalized, grouped, or counted?_
 
-For playgrounds, the shared extract filter is `leisure=playground` or any `playground=*` tag on nodes, ways, and relations. Exported attributes include `name`, `leisure`, `playground`, and (for polygon areas) `play_equipment_count`.
-
-For playgrounds, a simple example is `play_equipment_count`: individual play equipment features can be counted for each playground area, so a map or analysis can show which playgrounds have the most mapped equipment. That small enrichment step is part of the dataset definition, not just a rendering trick.
+The roads/bikelanes dataset is exactly such an interpretation: raw `highway` ways become classified bikelane objects (protected cycleway, advisory lane, shared bus lane, …), split into left/right sides where the infrastructure is mapped on the road center line, enriched with derived attributes (`surface`, `smoothness`, `oneway`) and geometrically offset from the center line for rendering.
 
 ### Two Outputs, One Dataset
 
@@ -29,25 +29,19 @@ These outputs should describe the same playground dataset as closely as possible
 
 ### What the current results show
 
-The current comparison evaluates pipelines built around tools such as `Osmium`, `osm2pgsql flex`, `PostGIS`, `GDAL`, `GeoPandas`, `tippecanoe`, `Planetiler`, and `cosmo`. For the current best pipeline and the detailed pipeline results, see [`results/summary.md`](results/summary.md).
-
-At the moment, the `osm2pgsql-postgis-prefilter` pipeline is the main PostGIS reference pipeline: it prefilters the source OSM PBF with `osmium tags-filter`, imports the reduced extract with `osm2pgsql flex`, runs SQL enrichment in `PostGIS`, and exports both `GeoParquet` and `PMTiles`. It offers strong flexibility for opinionated processing because SQL postprocessing can express domain-specific enrichment clearly. The benchmark also shows where this traditional toolchain is not yet optimized for directly producing small, static `PMTiles` and `GeoParquet` files as final artifacts.
+See [`results/summary.md`](results/summary.md) for the latest run and [`results/methodology.md`](results/methodology.md) for the full contract, fairness rules, and measured parity between the two implementations (category agreement 100% on shared ids, 0.35% id-set drift on Berlin).
 
 ## What this project evaluates
 
-- End-to-end runtime and per-step runtime
-- Operational complexity and maintainability
-- Output completeness and validation quality
-- Optional geometric enrichment support (`play_equipment_count`)
+- End-to-end runtime and per-step runtime on a realistic classification workload
+- Operational complexity and maintainability (database vs no-database paths)
+- Output completeness and cross-implementation parity
+- The PostGIS-dependent enrichment step (geometric offset of sided bikelanes)
 
 ## Pipelines in scope
 
-- `pipelines/osmium-gdal-tippecanoe`
-- `pipelines/osm2pgsql-postgis-direct`
-- `pipelines/osm2pgsql-postgis-prefilter`
-- `pipelines/osm2pgsql-postgis-prefilter-osmfilter` (same as B2, but `osmconvert` + `osmfilter` instead of Osmium — compare prefilter vs B2)
-- `pipelines/planetiler-playgrounds` (PMTiles only; no GeoParquet in this toolchain—see `validation.json` → `lacking`)
-- `pipelines/cosmo-playgrounds` — two variants: **dual-pass** (native GeoParquet + second cosmo read for tiles) and **single-pass** (one cosmo read + GDAL GeoJSONSeq + GeoPandas Parquet + tippecanoe); see summary section *Cosmo dual-pass vs single-pass*
+- `pipelines/roads-bikelanes-osm2pgsql` — tilda-geo's production Lua, two variants: **prefilter-osmium** (tilda's production setup) and **direct** (raw PBF into osm2pgsql)
+- `pipelines/roads-bikelanes-osmnexus` — OSMnexus with its bundled tilda config, two variants: **postgis** (DB + SQL offset) and **geojsonseq** (streamed NDJSON straight to exports, no database)
 
 ## Dataset selection
 
