@@ -77,7 +77,26 @@ SELECT
   playground,
   NULL::integer AS play_equipment_count,
   geom
-FROM playground_lines
+FROM playground_lines l
+-- Closed target ways/relations are exported as polygons below; exporting
+-- their linestring twin as well would duplicate every playground area.
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM benchmark.playground_polygons_raw r
+  WHERE r.osm_id = l.osm_id
+    AND r.osm_type = l.osm_type
+)
+UNION ALL
+SELECT
+  osm_id,
+  osm_type,
+  name,
+  leisure,
+  playground,
+  NULL::integer AS play_equipment_count,
+  geom
+FROM benchmark.playground_polygons_raw
+WHERE leisure IS DISTINCT FROM 'playground'
 UNION ALL
 SELECT
   osm_id,
