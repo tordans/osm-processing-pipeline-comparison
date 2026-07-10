@@ -42,7 +42,7 @@ History: until 2026-07 the filter used `amenity=playground` (a tag real playgrou
 | osm2pgsql family (B1/B2/B2-osmfilter) | 10 627 | Reference. Drops one relation whose multipolygon `osm2pgsql` cannot assemble. |
 | osmnexus (both variants) | 10 628 | Recovers that broken multipolygon relation geometrically (`ST_BuildArea` over merged member lines). |
 | cosmo (both variants) | 10 598 | Exports no relation features (`relation: false` in its filter). |
-| osmium-gdal-tippecanoe | 11 789 | GDAL OSM-driver layer semantics emit some objects in more than one layer; not yet deduplicated (open task). |
+| osmium-gdal-tippecanoe | 10 623 | Misses 4 relations of non-multipolygon types (e.g. `type=site`), which GDAL routes to the unexported `other_relations` layer. Until 2026-07 it also exported every *referenced* tagged object from the osmium prefilter (gates, access nodes on playground ways — 11 789 total); fixed with a per-layer tag gate (`-where` on `leisure`/`playground` via a vendored `osmconf.ini`). |
 
 ### OSMnexus specifics
 

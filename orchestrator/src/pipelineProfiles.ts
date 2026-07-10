@@ -41,9 +41,9 @@ const DELIVERY_HOW: Record<string, string> = {
   "cosmo-playgrounds-single-pass":
     "One `cosmo convert` → GeoJSONL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
   "osmnexus-postgis":
-    "Osmium `tags-filter` → OSMnexus `pg` import → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
+    "OSMnexus `pg` import (filters while reading) → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
   "osmnexus-geojson-direct":
-    "Osmium `tags-filter` → OSMnexus `geojson` → Python segment merge/polygonize → GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
+    "OSMnexus `geojson` (filters while reading) → Python segment merge/polygonize → GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
 };
 
 const PARQUET_HOW: Record<string, string> = {

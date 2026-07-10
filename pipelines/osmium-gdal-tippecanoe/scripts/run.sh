@@ -38,15 +38,24 @@ osmium tags-filter "${INPUT_PBF}" \
 T1=$(date +%s%3N)
 
 echo "[pipeline-a] convert filtered PBF layers to ndjson"
+# The osmium prefilter keeps objects referenced by matches (way nodes, relation
+# members), so GDAL would also emit tagged non-playground objects (gates, access
+# nodes on playground ways). Re-apply the tag gate per layer, using a vendored
+# osmconf.ini that exposes leisure/playground as real columns.
+OSMCONF=/workspace/pipelines/osmium-gdal-tippecanoe/osmconf.ini
+TAG_GATE="leisure = 'playground' OR playground IS NOT NULL"
 T2=$(date +%s%3N)
 ogr2ogr -skipfailures -t_srs EPSG:4326 -f GeoJSONSeq \
   -lco "COORDINATE_PRECISION=${COORD_PRECISION}" -lco RFC7946=YES \
+  -oo "CONFIG_FILE=${OSMCONF}" -where "${TAG_GATE}" \
   "${POINTS_NDJSON}" "${FILTERED_PBF}" points
 ogr2ogr -skipfailures -t_srs EPSG:4326 -f GeoJSONSeq \
   -lco "COORDINATE_PRECISION=${COORD_PRECISION}" -lco RFC7946=YES \
+  -oo "CONFIG_FILE=${OSMCONF}" -where "${TAG_GATE}" \
   "${LINES_NDJSON}" "${FILTERED_PBF}" lines
 ogr2ogr -skipfailures -t_srs EPSG:4326 -f GeoJSONSeq \
   -lco "COORDINATE_PRECISION=${COORD_PRECISION}" -lco RFC7946=YES \
+  -oo "CONFIG_FILE=${OSMCONF}" -where "${TAG_GATE}" \
   "${POLYGONS_NDJSON}" "${FILTERED_PBF}" multipolygons
 
 cat "${POINTS_NDJSON}" "${LINES_NDJSON}" "${POLYGONS_NDJSON}" > "${ALL_NDJSON}"

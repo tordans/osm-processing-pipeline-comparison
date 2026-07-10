@@ -17,19 +17,14 @@ mkdir -p "${INTERMEDIATE_DIR}" "${OUTPUT_DIR}"
 
 COORD_PRECISION=7
 
-FILTERED_PBF="${INTERMEDIATE_DIR}/filtered.osm.pbf"
 NDJSON_OUT="${INTERMEDIATE_DIR}/playgrounds.ndjson"
 PARQUET_OUT="${OUTPUT_DIR}/playgrounds.parquet"
 PMTILES_OUT="${OUTPUT_DIR}/playgrounds.pmtiles"
 VALIDATION_JSON="${OUTPUT_DIR}/validation.json"
 
-echo "[pipeline-nexus-pg] prefilter source pbf with osmium"
+# No osmium prefilter: OSMnexus filters while reading via the topic config
+# (single pass, PBF in -> classified rows out), like B1/cosmo declare it.
 T0=$(date +%s%3N)
-osmium tags-filter "${INPUT_PBF}" \
-  nwr/leisure=playground \
-  nwr/playground=* \
-  -o "${FILTERED_PBF}" -O
-T1=$(date +%s%3N)
 
 echo "[pipeline-nexus-pg] start postgres cluster"
 pg_ctlcluster 16 main start
@@ -42,9 +37,9 @@ runuser -u postgres -- psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE osm_benchmark
 runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d osm_benchmark -c "CREATE EXTENSION postgis;"
 T3=$(date +%s%3N)
 
-echo "[pipeline-nexus-pg] import filtered pbf with osmnexus"
+echo "[pipeline-nexus-pg] import pbf with osmnexus (filters while reading)"
 T4=$(date +%s%3N)
-runuser -u postgres -- env PGDATABASE=osm_benchmark osmnexus "${FILTERED_PBF}" \
+runuser -u postgres -- env PGDATABASE=osm_benchmark osmnexus "${INPUT_PBF}" \
   --config-dir /workspace/pipelines/osmnexus-playgrounds/configs/playgrounds \
   --output pg \
   --emit-way-geometries \
@@ -144,7 +139,7 @@ if not validation["ok"]:
 PY
 T15=$(date +%s%3N)
 
-export CMP_FILTER_MS="$((T1 - T0))"
+export CMP_FILTER_MS="null"
 export CMP_CLEAN_TRANSFORM_MS="$(( (T3 - T2) + (T5 - T4) + (T9 - T8) ))"
 export CMP_EXPORT_GEOPARQUET_MS="$((T11 - T10))"
 export CMP_EXPORT_PMTILES_MS="$((T13 - T12))"
@@ -154,6 +149,7 @@ export CMP_TOTAL_IN_CONTAINER_MS="$((T15 - T0))"
 export REQ_GENERATE_GEOPARQUET_MATCHED="true"
 export REQ_GENERATE_PMTILES_MATCHED="true"
 export REQ_FILTER_CLEAN_CONFIRMED_MATCHED="true"
+export REQ_FILTER_CLEAN_CONFIRMED_REASON="No dedicated prefilter; filtering in OSMnexus classifier"
 export REQ_SQL_POSTPROCESS_MATCHED="true"
 # shellcheck source=/dev/null
 source /workspace/pipelines/lib/write-comparison.sh

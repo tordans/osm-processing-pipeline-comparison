@@ -17,7 +17,6 @@ mkdir -p "${INTERMEDIATE_DIR}" "${OUTPUT_DIR}"
 
 COORD_PRECISION=7
 
-FILTERED_PBF="${INTERMEDIATE_DIR}/filtered.osm.pbf"
 NEXUS_OUT="${INTERMEDIATE_DIR}/nexus-out"
 GEOJSON_IN="${NEXUS_OUT}/playgrounds.geojson"
 NDJSON_OUT="${INTERMEDIATE_DIR}/playgrounds.ndjson"
@@ -25,18 +24,14 @@ PARQUET_OUT="${OUTPUT_DIR}/playgrounds.parquet"
 PMTILES_OUT="${OUTPUT_DIR}/playgrounds.pmtiles"
 VALIDATION_JSON="${OUTPUT_DIR}/validation.json"
 
-echo "[pipeline-nexus-geojson] prefilter source pbf with osmium"
+# No osmium prefilter: OSMnexus filters while reading via the topic config
+# (single pass, PBF in -> classified GeoJSON out), like B1/cosmo declare it.
 T0=$(date +%s%3N)
-osmium tags-filter "${INPUT_PBF}" \
-  nwr/leisure=playground \
-  nwr/playground=* \
-  -o "${FILTERED_PBF}" -O
-T1=$(date +%s%3N)
 
-echo "[pipeline-nexus-geojson] classify with osmnexus (geojson output)"
+echo "[pipeline-nexus-geojson] classify with osmnexus (filters while reading)"
 T2=$(date +%s%3N)
 mkdir -p "${NEXUS_OUT}"
-osmnexus "${FILTERED_PBF}" \
+osmnexus "${INPUT_PBF}" \
   --config-dir /workspace/pipelines/osmnexus-playgrounds/configs/playgrounds \
   --output geojson \
   --out-dir "${NEXUS_OUT}" \
@@ -261,7 +256,7 @@ if not validation["ok"]:
 PY
 T11=$(date +%s%3N)
 
-export CMP_FILTER_MS="$((T1 - T0))"
+export CMP_FILTER_MS="null"
 export CMP_CLEAN_TRANSFORM_MS="$(( (T3 - T2) + (T5 - T4) ))"
 export CMP_EXPORT_GEOPARQUET_MS="$((T7 - T6))"
 export CMP_EXPORT_PMTILES_MS="$((T9 - T8))"
@@ -271,6 +266,7 @@ export CMP_TOTAL_IN_CONTAINER_MS="$((T11 - T0))"
 export REQ_GENERATE_GEOPARQUET_MATCHED="true"
 export REQ_GENERATE_PMTILES_MATCHED="true"
 export REQ_FILTER_CLEAN_CONFIRMED_MATCHED="true"
+export REQ_FILTER_CLEAN_CONFIRMED_REASON="No dedicated prefilter; filtering in OSMnexus classifier"
 export REQ_SQL_POSTPROCESS_MATCHED="false"
 export REQ_SQL_POSTPROCESS_REASON="Pipeline has no SQL/PostGIS stage"
 # shellcheck source=/dev/null

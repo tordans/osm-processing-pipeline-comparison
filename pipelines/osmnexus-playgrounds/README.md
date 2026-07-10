@@ -13,9 +13,9 @@ Upstream OSMnexus only emits `nodes` rows referenced by kept ways. Playground be
 
 ## Step flows
 
-**PostGIS (`osmnexus-postgis`):** Osmium `tags-filter` → embedded Postgres 16 + PostGIS → `osmnexus --output pg` (with way/relation geometry tables) → `sql/postprocess.sql` → `ogr2ogr` GeoJSONSeq → GeoPandas GeoParquet → tippecanoe PMTiles → validation.
+**PostGIS (`osmnexus-postgis`):** embedded Postgres 16 + PostGIS → `osmnexus --output pg` on the full input PBF (filters while reading; no osmium prefilter) (with way/relation geometry tables) → `sql/postprocess.sql` → `ogr2ogr` GeoJSONSeq → GeoPandas GeoParquet → tippecanoe PMTiles → validation.
 
-**GeoJSON direct (`osmnexus-geojson-direct`):** Osmium `tags-filter` → `osmnexus --output geojson` → Python transform (segment merge, polygonize closed rings) → GeoJSONSeq → GeoPandas GeoParquet → tippecanoe PMTiles → validation.
+**GeoJSON direct (`osmnexus-geojson-direct`):** `osmnexus --output geojson` on the full input PBF (filters while reading; no osmium prefilter) → Python transform (segment merge, polygonize closed rings) → GeoJSONSeq → GeoPandas GeoParquet → tippecanoe PMTiles → validation.
 
 ## Known caveats
 
