@@ -23,6 +23,33 @@ Compare pipeline variants on equal conditions for OSM playground extraction and 
   - `cosmo-playgrounds-single-pass`: one `cosmo convert` to GeoJSONL, then the same GDAL GeoJSONSeq + GeoPandas Parquet + tippecanoe path as `osmium-gdal-tippecanoe` (Parquet is not cosmo-native in this variant).
   - Summary compares dual-pass vs single-pass wall times and cosmo OSM read totals (`export_geoparquet` + `cosmo_export_geojsonl` vs `cosmo_extract`).
 
+## Export semantics (feature identity)
+
+Comparable pipelines export **each OSM object once**, keyed by (`osm_type`, `osm_id`):
+
+- nodes → Point
+- open ways → LineString; closed target ways → Polygon
+- relations → (Multi)Polygon assembled from member ways where possible
+- attribute columns: `osm_id`, `osm_type`, `name`, `leisure`, `playground`, `play_equipment_count`
+- **Enrichment:** `leisure=playground` polygons carry `play_equipment_count` (count of intersecting `playground=*` features); all other features carry `null`
+
+History: until 2026-07 the filter used `amenity=playground` (a tag real playgrounds do not use — Berlin matched 18 objects), and the osm2pgsql pipelines exported closed playground ways twice (LineString + Polygon). Both were fixed; runs before that are not comparable to current runs.
+
+### Known feature-count differences (Berlin reference: ~10 627)
+
+| Pipeline | Features | Why it differs |
+| --- | --- | --- |
+| osm2pgsql family (B1/B2/B2-osmfilter) | 10 627 | Reference. Drops one relation whose multipolygon `osm2pgsql` cannot assemble. |
+| osmnexus (both variants) | 10 628 | Recovers that broken multipolygon relation geometrically (`ST_BuildArea` over merged member lines). |
+| cosmo (both variants) | 10 598 | Exports no relation features (`relation: false` in its filter). |
+| osmium-gdal-tippecanoe | 11 789 | GDAL OSM-driver layer semantics emit some objects in more than one layer; not yet deduplicated (open task). |
+
+### OSMnexus specifics
+
+- Built from source at a pinned rev with a vendored patch that emits standalone classified nodes (upstream drops nodes not referenced by kept ways; see [rush42/OSMnexus#1](https://github.com/rush42/OSMnexus/issues/1)).
+- Stores node coordinates as `f32`: point positions deviate up to ~0.21 m from the reference, so the 7-decimal serialization policy is not fully met for points.
+- Relation inner/outer roles are not preserved; holes are inferred from ring nesting (verified equivalent on all Berlin playground relations).
+
 ## Measurements
 
 For each pipeline run:
