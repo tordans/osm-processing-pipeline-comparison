@@ -9,6 +9,8 @@ export const PMTILES_STEP_KEYS: Record<string, string> = {
   "planetiler-playgrounds": "planetiler_pmtiles",
   "cosmo-playgrounds-dual-pass": "export_pmtiles",
   "cosmo-playgrounds-single-pass": "export_pmtiles",
+  "osmnexus-postgis": "export_pmtiles",
+  "osmnexus-geojson-direct": "export_pmtiles",
 };
 
 export const PARQUET_STEP_KEYS: Record<string, string | undefined> = {
@@ -19,6 +21,8 @@ export const PARQUET_STEP_KEYS: Record<string, string | undefined> = {
   "planetiler-playgrounds": undefined,
   "cosmo-playgrounds-dual-pass": "export_geoparquet",
   "cosmo-playgrounds-single-pass": "export_geoparquet",
+  "osmnexus-postgis": "export_geoparquet",
+  "osmnexus-geojson-direct": "export_geoparquet",
 };
 
 const DELIVERY_HOW: Record<string, string> = {
@@ -36,6 +40,10 @@ const DELIVERY_HOW: Record<string, string> = {
     "Two `cosmo convert` passes: native GeoParquet + GeoJSONL → tippecanoe → `playgrounds.pmtiles`.",
   "cosmo-playgrounds-single-pass":
     "One `cosmo convert` → GeoJSONL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
+  "osmnexus-postgis":
+    "Osmium `tags-filter` → OSMnexus `pg` import → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
+  "osmnexus-geojson-direct":
+    "Osmium `tags-filter` → OSMnexus `geojson` → Python segment merge/polygonize → GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
 };
 
 const PARQUET_HOW: Record<string, string> = {
@@ -53,6 +61,10 @@ const PARQUET_HOW: Record<string, string> = {
     "Native cosmo GeoParquet (`export_geoparquet` step).",
   "cosmo-playgrounds-single-pass":
     "GeoPandas reads GDAL-normalized GeoJSONSeq, writes GeoParquet via PyArrow (single cosmo OSM read).",
+  "osmnexus-postgis":
+    "GeoPandas reads GeoJSONSeq, writes GeoParquet via PyArrow (GDAL Parquet driver not assumed).",
+  "osmnexus-geojson-direct":
+    "GeoPandas reads GeoJSONSeq, writes GeoParquet via PyArrow (GDAL Parquet driver not assumed).",
 };
 
 const SERVER_NOTES: Record<string, string> = {
@@ -70,6 +82,10 @@ const SERVER_NOTES: Record<string, string> = {
     "Rust `cosmo` binary (compiled in image). No DB. Two full PBF scans for Parquet + tiles.",
   "cosmo-playgrounds-single-pass":
     "Rust `cosmo` + GDAL + GeoPandas + tippecanoe. No DB. One PBF scan; GDAL/GeoPandas add moving parts vs dual-pass native Parquet.",
+  "osmnexus-postgis":
+    "PostgreSQL + PostGIS + OSMnexus + SQL post-process. Same ops surface as osm2pgsql B2; classifier replaces flex import.",
+  "osmnexus-geojson-direct":
+    "Rust `osmnexus` + Python/Shapely transform + GeoPandas + tippecanoe. No database.",
 };
 
 const CI_NOTES: Record<string, string> = {
@@ -87,6 +103,10 @@ const CI_NOTES: Record<string, string> = {
     "First image build compiles cosmo from source. Berlin is fine on typical runners; Germany needs RAM/disk. Netlify: host outputs only.",
   "cosmo-playgrounds-single-pass":
     "Same image as dual-pass. Compare in-container totals vs dual-pass to see one-read vs two-read tradeoff.",
+  "osmnexus-postgis":
+    "Docker on GHA: Berlin is typical; Germany stresses RAM/disk and Postgres in-container. First build compiles OSMnexus from source. Netlify: host outputs only.",
+  "osmnexus-geojson-direct":
+    "Same image as postgis variant. Berlin is fine on typical runners; Germany needs RAM/disk. Netlify: host outputs only.",
 };
 
 function fmtMs(ms: number): string {

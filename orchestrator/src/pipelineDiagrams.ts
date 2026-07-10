@@ -150,6 +150,50 @@ const PIPELINE_FLOWS: Record<string, PipelineFlowDoc> = {
   geoParquet --> validate
   pmtiles --> validate`,
   },
+  "osmnexus-postgis": {
+    summary:
+      "Osmium prefilter before OSMnexus Postgres import; same PostGIS SQL and export path as B2.",
+    mermaid: `flowchart LR
+  inputPbf["OSM PBF"]
+  osmiumFilter["Osmium tags-filter"]
+  filteredPbf["Filtered PBF"]
+  osmnexusPg["OSMnexus pg import"]
+  postgis["PostGIS"]
+  sqlPost["SQL postprocess"]
+  ogrNdjson["ogr2ogr GeoJSONSeq"]
+  ndjson["NDJSON"]
+  geoParquet["GeoParquet"]
+  pmtiles["PMTiles"]
+  validate["Validate"]
+
+  inputPbf --> osmiumFilter --> filteredPbf --> osmnexusPg --> postgis
+  postgis --> sqlPost --> ogrNdjson --> ndjson
+  ndjson --> geoParquet
+  ndjson --> pmtiles
+  geoParquet --> validate
+  pmtiles --> validate`,
+  },
+  "osmnexus-geojson-direct": {
+    summary:
+      "Osmium prefilter, OSMnexus GeoJSON output, Python segment merge and polygonize, then shared exports. No database.",
+    mermaid: `flowchart LR
+  inputPbf["OSM PBF"]
+  osmiumFilter["Osmium tags-filter"]
+  filteredPbf["Filtered PBF"]
+  osmnexusGeojson["OSMnexus geojson"]
+  geojson["GeoJSON"]
+  pyTransform["Python transform"]
+  ndjson["NDJSON"]
+  geoParquet["GeoParquet"]
+  pmtiles["PMTiles"]
+  validate["Validate"]
+
+  inputPbf --> osmiumFilter --> filteredPbf --> osmnexusGeojson --> geojson --> pyTransform --> ndjson
+  ndjson --> geoParquet
+  ndjson --> pmtiles
+  geoParquet --> validate
+  pmtiles --> validate`,
+  },
 };
 
 export function buildPipelineFlowsChapter(pipelineIds: string[]): string[] {

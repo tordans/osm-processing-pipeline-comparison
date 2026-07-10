@@ -1,0 +1,4 @@
+{
+  "table": "playgrounds",
+  "osm_fields": ["name", "amenity", "playground"]
+}

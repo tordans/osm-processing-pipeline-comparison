@@ -1,0 +1,8 @@
+{
+  "condition": {
+    "or": [
+      { "tag": "amenity", "eq": "playground" },
+      { "tag": "playground", "exists": true }
+    ]
+  }
+}

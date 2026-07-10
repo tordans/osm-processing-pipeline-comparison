@@ -70,4 +70,16 @@ export const PIPELINES: PipelineConfig[] = [
     dir: resolve(REPO_ROOT, "pipelines", "cosmo-playgrounds"),
     scriptPathInWorkspace: "/workspace/pipelines/cosmo-playgrounds/scripts/run-single-pass.sh",
   },
+  {
+    id: "osmnexus-postgis",
+    imageTag: "osm-benchmark-pipeline-osmnexus:latest",
+    dir: resolve(REPO_ROOT, "pipelines", "osmnexus-playgrounds"),
+    scriptPathInWorkspace: "/workspace/pipelines/osmnexus-playgrounds/scripts/run-postgis.sh",
+  },
+  {
+    id: "osmnexus-geojson-direct",
+    imageTag: "osm-benchmark-pipeline-osmnexus:latest",
+    dir: resolve(REPO_ROOT, "pipelines", "osmnexus-playgrounds"),
+    scriptPathInWorkspace: "/workspace/pipelines/osmnexus-playgrounds/scripts/run-geojson-direct.sh",
+  },
 ];
