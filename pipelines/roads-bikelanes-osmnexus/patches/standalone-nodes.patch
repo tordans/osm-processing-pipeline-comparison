@@ -1,0 +1,70 @@
+diff --git a/src/osm/reader/fallback.rs b/src/osm/reader/fallback.rs
+index 9143292..a305ea2 100644
+--- a/src/osm/reader/fallback.rs
++++ b/src/osm/reader/fallback.rs
+@@ -106,15 +106,25 @@ where
+                 let mut coords: Vec<(i64, f32, f32)> = Vec::new();
+                 let mut selected: FxHashSet<i64> = FxHashSet::default();
+                 match element {
+-                    Element::DenseNode(n) if use_counts.contains_key(&n.id()) => {
+-                        coords.push((n.id(), n.lon() as f32, n.lat() as f32));
+-                        if cb.has_nodes && (cb.classify_node)(&dense_node_data(&n)) {
++                    Element::DenseNode(n) => {
++                        if use_counts.contains_key(&n.id()) {
++                            coords.push((n.id(), n.lon() as f32, n.lat() as f32));
++                            if cb.has_nodes && (cb.classify_node)(&dense_node_data(&n)) {
++                                selected.insert(n.id());
++                            }
++                        } else if cb.has_nodes && (cb.classify_node)(&dense_node_data(&n)) {
++                            coords.push((n.id(), n.lon() as f32, n.lat() as f32));
+                             selected.insert(n.id());
+                         }
+                     }
+-                    Element::Node(n) if use_counts.contains_key(&n.id()) => {
+-                        coords.push((n.id(), n.lon() as f32, n.lat() as f32));
+-                        if cb.has_nodes && (cb.classify_node)(&node_data(&n)) {
++                    Element::Node(n) => {
++                        if use_counts.contains_key(&n.id()) {
++                            coords.push((n.id(), n.lon() as f32, n.lat() as f32));
++                            if cb.has_nodes && (cb.classify_node)(&node_data(&n)) {
++                                selected.insert(n.id());
++                            }
++                        } else if cb.has_nodes && (cb.classify_node)(&node_data(&n)) {
++                            coords.push((n.id(), n.lon() as f32, n.lat() as f32));
+                             selected.insert(n.id());
+                         }
+                     }
+diff --git a/src/osm/reader/sorted.rs b/src/osm/reader/sorted.rs
+index e594ab1..0a6179e 100644
+--- a/src/osm/reader/sorted.rs
++++ b/src/osm/reader/sorted.rs
+@@ -149,7 +149,8 @@ where
+ ///
+ /// When `classify_nodes` is set, every needed node's tags are also decoded and passed to
+ /// `classify_node` (side effect: emit node tag rows); a node it returns `true` for is *selected*
+-/// and its id is accumulated into the returned set (forced graph-vertex cut points). When unset,
++/// and its id is accumulated into the returned set (forced graph-vertex cut points). Standalone
++/// nodes (not referenced by any kept way) are included when classification matches. When unset,
+ /// node tags are not decoded at all — preserving the way-only performance profile.
+ pub(super) fn collect_coords<CN>(
+     path: &str,
+@@ -174,6 +175,9 @@ where
+                         if classify_nodes && classify_node(&dense_node_data(&n)) {
+                             selected.insert(n.id());
+                         }
++                    } else if classify_nodes && classify_node(&dense_node_data(&n)) {
++                        out.push((n.id(), n.lon() as f32, n.lat() as f32, false));
++                        selected.insert(n.id());
+                     }
+                 }
+                 for n in group.nodes() {
+@@ -182,6 +186,9 @@ where
+                         if classify_nodes && classify_node(&node_data(&n)) {
+                             selected.insert(n.id());
+                         }
++                    } else if classify_nodes && classify_node(&node_data(&n)) {
++                        out.push((n.id(), n.lon() as f32, n.lat() as f32, false));
++                        selected.insert(n.id());
+                     }
+                 }
+             }

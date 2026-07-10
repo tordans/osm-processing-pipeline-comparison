@@ -1,0 +1,56 @@
+{
+  "condition": {
+    "and": [
+      {
+        "side": "self"
+      },
+      {
+        "or": [
+          {
+            "tag": "cycleway:lanes",
+            "contains": "|lane|"
+          },
+          {
+            "tag": "bicycle:lanes",
+            "contains": "|designated|"
+          }
+        ]
+      }
+    ]
+  },
+  "excludes": [
+    "bicycle_road",
+    "bicycle_road_vehicle_destination",
+    "crossing",
+    "cycleway_link",
+    "cycleway_on_highway_protected",
+    "data_no",
+    "pedestrian_area_bicycle_yes",
+    "separate_geometry",
+    "shared_bus_lane_bike_with_bus",
+    "shared_bus_lane_bus_with_bike",
+    "shared_motor_vehicle_lane"
+  ],
+  "derivers": [
+    {
+      "deriver": "surface_from_parent",
+      "output": "surface"
+    },
+    {
+      "deriver": "traffic_mode_left_from_parking_directional",
+      "output": "traffic_mode_left"
+    },
+    {
+      "deriver": "traffic_mode_right_from_parking_directional",
+      "output": "traffic_mode_right"
+    }
+  ],
+  "consts": {
+    "oneway": {
+      "value": "implicit_yes",
+      "consts": {
+        "confidence": "high"
+      }
+    }
+  }
+}

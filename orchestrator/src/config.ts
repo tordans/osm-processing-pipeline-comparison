@@ -28,58 +28,29 @@ export interface PipelineConfig {
 
 export const PIPELINES: PipelineConfig[] = [
   {
-    id: "osmium-gdal-tippecanoe",
-    imageTag: "osm-benchmark-pipeline-a:latest",
-    dir: resolve(REPO_ROOT, "pipelines", "osmium-gdal-tippecanoe"),
-    scriptPathInWorkspace: "/workspace/pipelines/osmium-gdal-tippecanoe/scripts/run.sh",
-  },
-  {
-    id: "osm2pgsql-postgis-direct",
-    imageTag: "osm-benchmark-pipeline-b1:latest",
-    dir: resolve(REPO_ROOT, "pipelines", "osm2pgsql-postgis-direct"),
-    scriptPathInWorkspace: "/workspace/pipelines/osm2pgsql-postgis-direct/scripts/run.sh",
-  },
-  {
-    id: "osm2pgsql-postgis-prefilter",
-    imageTag: "osm-benchmark-pipeline-b2:latest",
-    dir: resolve(REPO_ROOT, "pipelines", "osm2pgsql-postgis-prefilter"),
-    scriptPathInWorkspace: "/workspace/pipelines/osm2pgsql-postgis-prefilter/scripts/run.sh",
-  },
-  {
-    id: "osm2pgsql-postgis-prefilter-osmfilter",
-    imageTag: "osm-benchmark-pipeline-b2-osmfilter:latest",
-    dir: resolve(REPO_ROOT, "pipelines", "osm2pgsql-postgis-prefilter-osmfilter"),
+    id: "roads-bikelanes-osm2pgsql-prefilter-osmium",
+    imageTag: "osm-benchmark-roads-bikelanes-osm2pgsql:latest",
+    dir: resolve(REPO_ROOT, "pipelines", "roads-bikelanes-osm2pgsql"),
     scriptPathInWorkspace:
-      "/workspace/pipelines/osm2pgsql-postgis-prefilter-osmfilter/scripts/run.sh",
+      "/workspace/pipelines/roads-bikelanes-osm2pgsql/scripts/run-prefilter-osmium.sh",
   },
   {
-    id: "planetiler-playgrounds",
-    imageTag: "osm-benchmark-pipeline-planetiler:latest",
-    dir: resolve(REPO_ROOT, "pipelines", "planetiler-playgrounds"),
-    scriptPathInWorkspace: "/workspace/pipelines/planetiler-playgrounds/scripts/run.sh",
+    id: "roads-bikelanes-osm2pgsql-direct",
+    imageTag: "osm-benchmark-roads-bikelanes-osm2pgsql:latest",
+    dir: resolve(REPO_ROOT, "pipelines", "roads-bikelanes-osm2pgsql"),
+    scriptPathInWorkspace: "/workspace/pipelines/roads-bikelanes-osm2pgsql/scripts/run-direct.sh",
   },
   {
-    id: "cosmo-playgrounds-dual-pass",
-    imageTag: "osm-benchmark-pipeline-cosmo:latest",
-    dir: resolve(REPO_ROOT, "pipelines", "cosmo-playgrounds"),
-    scriptPathInWorkspace: "/workspace/pipelines/cosmo-playgrounds/scripts/run-dual-pass.sh",
+    id: "roads-bikelanes-osmnexus-postgis",
+    imageTag: "osm-benchmark-roads-bikelanes-osmnexus:latest",
+    dir: resolve(REPO_ROOT, "pipelines", "roads-bikelanes-osmnexus"),
+    scriptPathInWorkspace: "/workspace/pipelines/roads-bikelanes-osmnexus/scripts/run-postgis.sh",
   },
   {
-    id: "cosmo-playgrounds-single-pass",
-    imageTag: "osm-benchmark-pipeline-cosmo:latest",
-    dir: resolve(REPO_ROOT, "pipelines", "cosmo-playgrounds"),
-    scriptPathInWorkspace: "/workspace/pipelines/cosmo-playgrounds/scripts/run-single-pass.sh",
-  },
-  {
-    id: "osmnexus-postgis",
-    imageTag: "osm-benchmark-pipeline-osmnexus:latest",
-    dir: resolve(REPO_ROOT, "pipelines", "osmnexus-playgrounds"),
-    scriptPathInWorkspace: "/workspace/pipelines/osmnexus-playgrounds/scripts/run-postgis.sh",
-  },
-  {
-    id: "osmnexus-geojson-direct",
-    imageTag: "osm-benchmark-pipeline-osmnexus:latest",
-    dir: resolve(REPO_ROOT, "pipelines", "osmnexus-playgrounds"),
-    scriptPathInWorkspace: "/workspace/pipelines/osmnexus-playgrounds/scripts/run-geojson-direct.sh",
+    id: "roads-bikelanes-osmnexus-geojsonseq",
+    imageTag: "osm-benchmark-roads-bikelanes-osmnexus:latest",
+    dir: resolve(REPO_ROOT, "pipelines", "roads-bikelanes-osmnexus"),
+    scriptPathInWorkspace:
+      "/workspace/pipelines/roads-bikelanes-osmnexus/scripts/run-geojsonseq.sh",
   },
 ];

@@ -1,0 +1,25 @@
+{
+  "condition": {
+    "macro": "is_crossing_pattern"
+  },
+  "excludes": [
+    "cycleway_link",
+    "data_no",
+    "not_expected",
+    "separate_geometry"
+  ],
+  "derivers": [
+    {
+      "deriver": "surface_from_parent",
+      "output": "surface"
+    }
+  ],
+  "consts": {
+    "oneway": {
+      "value": "implicit_yes",
+      "consts": {
+        "confidence": "low"
+      }
+    }
+  }
+}

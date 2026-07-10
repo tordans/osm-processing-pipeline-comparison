@@ -1,0 +1,23 @@
+{
+  "condition": {
+    "and": [
+      {
+        "tag": "highway",
+        "eq": "residential"
+      },
+      {
+        "tag": "priority_road",
+        "in": [
+          "designated",
+          "yes_unposted"
+        ]
+      }
+    ]
+  },
+  "excludes": [
+    "bicycle_road"
+  ],
+  "consts": {
+    "minzoom": 11
+  }
+}

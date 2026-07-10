@@ -1,0 +1,12 @@
+{
+  "condition": {
+    "tag": "highway",
+    "eq": "road"
+  },
+  "excludes": [
+    "bicycle_road"
+  ],
+  "consts": {
+    "minzoom": 11
+  }
+}

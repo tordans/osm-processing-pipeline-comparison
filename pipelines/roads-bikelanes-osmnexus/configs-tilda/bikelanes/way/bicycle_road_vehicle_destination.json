@@ -1,0 +1,73 @@
+{
+  "condition": {
+    "and": [
+      {
+        "macro": "is_bicycle_road"
+      },
+      {
+        "or": [
+          {
+            "tag": "traffic_sign",
+            "contains": "1020-30"
+          },
+          {
+            "tag": "traffic_sign",
+            "contains": "Kraftfahrzeuge-frei"
+          },
+          {
+            "tag": "traffic_sign",
+            "contains": "Kfz-Verkehr frei"
+          },
+          {
+            "tag": "traffic_sign",
+            "contains": "KFZ frei"
+          },
+          {
+            "tag": "vehicle",
+            "in": [
+              "destination",
+              "yes"
+            ]
+          },
+          {
+            "tag": "motor_vehicle",
+            "in": [
+              "destination",
+              "yes"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "excludes": [
+    "crossing",
+    "cycleway_link",
+    "cycleway_on_highway_protected",
+    "data_no",
+    "not_expected",
+    "separate_geometry"
+  ],
+  "derivers": [
+    {
+      "deriver": "surface_from_parent",
+      "output": "surface"
+    },
+    {
+      "deriver": "traffic_mode_left_from_parking_both",
+      "output": "traffic_mode_left"
+    },
+    {
+      "deriver": "traffic_mode_right_from_parking_both",
+      "output": "traffic_mode_right"
+    }
+  ],
+  "consts": {
+    "oneway": {
+      "value": "assumed_no",
+      "consts": {
+        "confidence": "high"
+      }
+    }
+  }
+}

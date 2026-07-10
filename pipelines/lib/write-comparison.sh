@@ -52,8 +52,10 @@ json_ms_or_null() {
 SOURCE_URL="$(dataset_source_url "${DATASET_NAME}")"
 COMPARISON_JSON="${OUTPUT_DIR}/comparison.json"
 TIMINGS_JSON="${OUTPUT_DIR}/step_timings.json"
-PARQUET_OUT="${OUTPUT_DIR}/playgrounds.parquet"
-PMTILES_OUT="${OUTPUT_DIR}/playgrounds.pmtiles"
+PARQUET_BASENAME="${CMP_PARQUET_BASENAME:-playgrounds.parquet}"
+PMTILES_BASENAME="${CMP_PMTILES_BASENAME:-playgrounds.pmtiles}"
+PARQUET_OUT="${OUTPUT_DIR}/${PARQUET_BASENAME}"
+PMTILES_OUT="${OUTPUT_DIR}/${PMTILES_BASENAME}"
 
 F_MS="$(json_ms_or_null "${CMP_FILTER_MS}")"
 CT_MS="$(json_ms_or_null "${CMP_CLEAN_TRANSFORM_MS}")"
@@ -120,6 +122,8 @@ REQ_FC="$(req_block "${REQ_FILTER_CLEAN_CONFIRMED_MATCHED}" "${REQ_FILTER_CLEAN_
 REQ_SQL="$(req_block "${REQ_SQL_POSTPROCESS_MATCHED}" "${REQ_SQL_POSTPROCESS_REASON}")"
 
 jq -n \
+  --arg parquetBasename "${PARQUET_BASENAME}" \
+  --arg pmtilesBasename "${PMTILES_BASENAME}" \
   --arg pipelineId "${PIPELINE_ID}" \
   --arg datasetName "${DATASET_NAME}" \
   --arg inputPath "${INPUT_PBF}" \
@@ -159,9 +163,9 @@ jq -n \
       sqlPostprocessCleanConfirmed: $reqSql
     },
     artifacts: {
-      geoParquetPath: "playgrounds.parquet",
+      geoParquetPath: $parquetBasename,
       geoParquetBytes: $parquetBytes,
-      pmtilesPath: "playgrounds.pmtiles",
+      pmtilesPath: $pmtilesBasename,
       pmtilesBytes: $pmtilesBytes
     },
     quality: {

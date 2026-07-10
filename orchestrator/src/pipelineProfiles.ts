@@ -2,111 +2,61 @@ import type { PipelineRunResult } from "./types";
 
 /** Step keys in each pipeline’s `step_timings.json` → `steps_ms` (for summary timing columns). */
 export const PMTILES_STEP_KEYS: Record<string, string> = {
-  "osmium-gdal-tippecanoe": "export_pmtiles",
-  "osm2pgsql-postgis-direct": "export_pmtiles",
-  "osm2pgsql-postgis-prefilter": "export_pmtiles",
-  "osm2pgsql-postgis-prefilter-osmfilter": "export_pmtiles",
-  "planetiler-playgrounds": "planetiler_pmtiles",
-  "cosmo-playgrounds-dual-pass": "export_pmtiles",
-  "cosmo-playgrounds-single-pass": "export_pmtiles",
-  "osmnexus-postgis": "export_pmtiles",
-  "osmnexus-geojson-direct": "export_pmtiles",
+  "roads-bikelanes-osm2pgsql-prefilter-osmium": "exportPmtiles",
+  "roads-bikelanes-osm2pgsql-direct": "exportPmtiles",
+  "roads-bikelanes-osmnexus-postgis": "exportPmtiles",
+  "roads-bikelanes-osmnexus-geojsonseq": "exportPmtiles",
 };
 
 export const PARQUET_STEP_KEYS: Record<string, string | undefined> = {
-  "osmium-gdal-tippecanoe": "export_geoparquet",
-  "osm2pgsql-postgis-direct": "export_geoparquet",
-  "osm2pgsql-postgis-prefilter": "export_geoparquet",
-  "osm2pgsql-postgis-prefilter-osmfilter": "export_geoparquet",
-  "planetiler-playgrounds": undefined,
-  "cosmo-playgrounds-dual-pass": "export_geoparquet",
-  "cosmo-playgrounds-single-pass": "export_geoparquet",
-  "osmnexus-postgis": "export_geoparquet",
-  "osmnexus-geojson-direct": "export_geoparquet",
+  "roads-bikelanes-osm2pgsql-prefilter-osmium": "exportGeoParquet",
+  "roads-bikelanes-osm2pgsql-direct": "exportGeoParquet",
+  "roads-bikelanes-osmnexus-postgis": "exportGeoParquet",
+  "roads-bikelanes-osmnexus-geojsonseq": "exportGeoParquet",
 };
 
 const DELIVERY_HOW: Record<string, string> = {
-  "osmium-gdal-tippecanoe":
-    "Osmium `tags-filter` → GDAL GeoJSONSeq (WGS84, 7 dp) → tippecanoe → `playgrounds.pmtiles`.",
-  "osm2pgsql-postgis-direct":
-    "osm2pgsql flex → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
-  "osm2pgsql-postgis-prefilter":
-    "Osmium `tags-filter` → osm2pgsql flex → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
-  "osm2pgsql-postgis-prefilter-osmfilter":
-    "`osmconvert` (PBF→o5m) → osmfilter → osm2pgsql flex → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
-  "planetiler-playgrounds":
-    "Planetiler custommap YAML (single JVM pass) → native PMTiles writer → `playgrounds.pmtiles`.",
-  "cosmo-playgrounds-dual-pass":
-    "Two `cosmo convert` passes: native GeoParquet + GeoJSONL → tippecanoe → `playgrounds.pmtiles`.",
-  "cosmo-playgrounds-single-pass":
-    "One `cosmo convert` → GeoJSONL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
-  "osmnexus-postgis":
-    "OSMnexus `pg` import (filters while reading) → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
-  "osmnexus-geojson-direct":
-    "OSMnexus `geojson` (filters while reading) → Python segment merge/polygonize → GeoJSONSeq → tippecanoe → `playgrounds.pmtiles`.",
+  "roads-bikelanes-osm2pgsql-prefilter-osmium":
+    "Osmium `tags-filter w/highway` → osm2pgsql flex (tilda-geo roads_bikelanes) → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `bikelanes.pmtiles`.",
+  "roads-bikelanes-osm2pgsql-direct":
+    "Full PBF osm2pgsql flex (tilda-geo roads_bikelanes) → PostGIS SQL → `ogr2ogr` GeoJSONSeq → tippecanoe → `bikelanes.pmtiles`.",
+  "roads-bikelanes-osmnexus-postgis":
+    "OSMnexus `pg` import (filters while reading) → PostGIS SQL offset/cleanup → `ogr2ogr` GeoJSONSeq → tippecanoe → `bikelanes.pmtiles`.",
+  "roads-bikelanes-osmnexus-geojsonseq":
+    "OSMnexus streamed GeoJSONSeq (filters while reading) → GeoPandas Parquet + tippecanoe → `bikelanes.pmtiles`.",
 };
 
 const PARQUET_HOW: Record<string, string> = {
-  "osmium-gdal-tippecanoe":
-    "GeoPandas reads GeoJSONSeq, writes GeoParquet via PyArrow (GDAL Parquet driver not assumed).",
-  "osm2pgsql-postgis-direct":
-    "GeoPandas reads GeoJSONSeq, writes GeoParquet via PyArrow (GDAL Parquet driver not assumed).",
-  "osm2pgsql-postgis-prefilter":
-    "GeoPandas reads GeoJSONSeq, writes GeoParquet via PyArrow (GDAL Parquet driver not assumed).",
-  "osm2pgsql-postgis-prefilter-osmfilter":
-    "GeoPandas reads GeoJSONSeq, writes GeoParquet via PyArrow (GDAL Parquet driver not assumed).",
-  "planetiler-playgrounds":
-    "Not supported — Planetiler does not emit Parquet; this benchmark does not add a second OSM pass to synthesize it.",
-  "cosmo-playgrounds-dual-pass":
-    "Native cosmo GeoParquet (`export_geoparquet` step).",
-  "cosmo-playgrounds-single-pass":
-    "GeoPandas reads GDAL-normalized GeoJSONSeq, writes GeoParquet via PyArrow (single cosmo OSM read).",
-  "osmnexus-postgis":
-    "GeoPandas reads GeoJSONSeq, writes GeoParquet via PyArrow (GDAL Parquet driver not assumed).",
-  "osmnexus-geojson-direct":
-    "GeoPandas reads GeoJSONSeq, writes GeoParquet via PyArrow (GDAL Parquet driver not assumed).",
+  "roads-bikelanes-osm2pgsql-prefilter-osmium":
+    "GeoPandas reads `bikelanes.ndjson`, writes `bikelanes.parquet` via PyArrow.",
+  "roads-bikelanes-osm2pgsql-direct":
+    "GeoPandas reads `bikelanes.ndjson`, writes `bikelanes.parquet` via PyArrow.",
+  "roads-bikelanes-osmnexus-postgis":
+    "GeoPandas reads `bikelanes.ndjson`, writes `bikelanes.parquet` via PyArrow.",
+  "roads-bikelanes-osmnexus-geojsonseq":
+    "GeoPandas reads streamed NDJSON, writes `bikelanes.parquet` via PyArrow.",
 };
 
 const SERVER_NOTES: Record<string, string> = {
-  "osmium-gdal-tippecanoe":
-    "No database. Stack: Osmium, GDAL, tippecanoe, Python/GeoPandas. Lowest moving parts for a one-off server job.",
-  "osm2pgsql-postgis-direct":
-    "PostgreSQL + PostGIS + osm2pgsql + SQL post-process. Higher ops surface (extensions, tuning, disk for DB).",
-  "osm2pgsql-postgis-prefilter":
-    "Same as direct variant plus Osmium prefilter step; smaller import, still full Postgres lifecycle in the container.",
-  "osm2pgsql-postgis-prefilter-osmfilter":
-    "Same as B2 but prefilter is osmconvert + osmfilter (no Osmium); needs extra disk for full `.o5m` before filtering.",
-  "planetiler-playgrounds":
-    "Single JVM + `planetiler.jar`; heap scales with extract size (~0.5× PBF recommended, 1 GiB floor in script). No DB.",
-  "cosmo-playgrounds-dual-pass":
-    "Rust `cosmo` binary (compiled in image). No DB. Two full PBF scans for Parquet + tiles.",
-  "cosmo-playgrounds-single-pass":
-    "Rust `cosmo` + GDAL + GeoPandas + tippecanoe. No DB. One PBF scan; GDAL/GeoPandas add moving parts vs dual-pass native Parquet.",
-  "osmnexus-postgis":
-    "PostgreSQL + PostGIS + OSMnexus + SQL post-process. Same ops surface as osm2pgsql B2; classifier replaces flex import.",
-  "osmnexus-geojson-direct":
-    "Rust `osmnexus` + Python/Shapely transform + GeoPandas + tippecanoe. No database.",
+  "roads-bikelanes-osm2pgsql-prefilter-osmium":
+    "PostgreSQL + PostGIS + osm2pgsql 2.3+ flex Lua (vendored tilda-geo). Osmium prefilter shrinks import; pseudo-tag CSVs stubbed in benchmark.",
+  "roads-bikelanes-osm2pgsql-direct":
+    "Same stack as prefilter variant without Osmium step; full highway ways imported from raw PBF.",
+  "roads-bikelanes-osmnexus-postgis":
+    "PostgreSQL + PostGIS + OSMnexus classifier import; SQL post-process for bikelane offsets.",
+  "roads-bikelanes-osmnexus-geojsonseq":
+    "Rust OSMnexus streaming export + Python/GeoPandas + tippecanoe. No database.",
 };
 
 const CI_NOTES: Record<string, string> = {
-  "osmium-gdal-tippecanoe":
-    "Docker on GitHub Actions: usually fine for Berlin; Germany needs enough disk/RAM on the runner. Netlify/Vercel: use only to **host** static `.pmtiles`/`.parquet` after CI builds them — not to run this extract.",
-  "osm2pgsql-postgis-direct":
-    "Docker on GHA: Berlin is typical; Germany stresses RAM/disk and runtime. Same Netlify note: artifact hosting only.",
-  "osm2pgsql-postgis-prefilter":
-    "Same runner considerations as B1; prefilter reduces import time but still needs Postgres in Docker.",
-  "osm2pgsql-postgis-prefilter-osmfilter":
-    "Same as B2; Germany needs enough disk for a full `.o5m` copy during `osmconvert` (osmfilter requires a seekable file).",
-  "planetiler-playgrounds":
-    "Docker on GHA: set `PLANETILER_JAVA_OPTS` if the default heap hits runner limits. Germany may need a larger runner. Netlify: host outputs only.",
-  "cosmo-playgrounds-dual-pass":
-    "First image build compiles cosmo from source. Berlin is fine on typical runners; Germany needs RAM/disk. Netlify: host outputs only.",
-  "cosmo-playgrounds-single-pass":
-    "Same image as dual-pass. Compare in-container totals vs dual-pass to see one-read vs two-read tradeoff.",
-  "osmnexus-postgis":
-    "Docker on GHA: Berlin is typical; Germany stresses RAM/disk and Postgres in-container. First build compiles OSMnexus from source. Netlify: host outputs only.",
-  "osmnexus-geojson-direct":
-    "Same image as postgis variant. Berlin is fine on typical runners; Germany needs RAM/disk. Netlify: host outputs only.",
+  "roads-bikelanes-osm2pgsql-prefilter-osmium":
+    "Docker on GHA: Berlin is typical; Germany needs RAM/disk for Postgres + osm2pgsql. Bind-mount repo for Lua/SQL iteration without rebuild.",
+  "roads-bikelanes-osm2pgsql-direct":
+    "Same image as prefilter variant; longer osm2pgsql import on full PBF.",
+  "roads-bikelanes-osmnexus-postgis":
+    "Docker on GHA: first build compiles OSMnexus; Postgres in-container for Berlin-sized extracts.",
+  "roads-bikelanes-osmnexus-geojsonseq":
+    "Same image as postgis variant; no Postgres lifecycle; memory scales with extract.",
 };
 
 function fmtMs(ms: number): string {
@@ -148,7 +98,7 @@ export function buildPerPipelineProfileSections(pipelines: PipelineRunResult[]):
   const blocks: string[] = [
     "## Per-pipeline outputs and operations",
     "",
-    "Single-file **tile delivery** means `playgrounds.pmtiles` (HTTP-range-friendly archive). **Analysis format** means `playgrounds.parquet` (GeoParquet). Times come from each run’s `step_timings.json` where a matching step key exists.",
+    "Single-file **tile delivery** means `bikelanes.pmtiles` (HTTP-range-friendly archive). **Analysis format** means `bikelanes.parquet` (GeoParquet). Times come from each run’s `step_timings.json` where a matching step key exists.",
     "",
   ];
 

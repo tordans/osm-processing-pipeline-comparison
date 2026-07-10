@@ -1,0 +1,9 @@
+{
+  "condition": {
+    "tag": "bicycle_road",
+    "eq": "yes"
+  },
+  "consts": {
+    "minzoom": 11
+  }
+}

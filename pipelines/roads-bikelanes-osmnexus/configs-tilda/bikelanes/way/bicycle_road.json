@@ -1,0 +1,36 @@
+{
+  "condition": {
+    "macro": "is_bicycle_road"
+  },
+  "excludes": [
+    "bicycle_road_vehicle_destination",
+    "crossing",
+    "cycleway_link",
+    "cycleway_on_highway_protected",
+    "data_no",
+    "not_expected",
+    "separate_geometry"
+  ],
+  "derivers": [
+    {
+      "deriver": "surface_from_parent",
+      "output": "surface"
+    },
+    {
+      "deriver": "traffic_mode_left_from_parking_both",
+      "output": "traffic_mode_left"
+    },
+    {
+      "deriver": "traffic_mode_right_from_parking_both",
+      "output": "traffic_mode_right"
+    }
+  ],
+  "consts": {
+    "oneway": {
+      "value": "assumed_no",
+      "consts": {
+        "confidence": "high"
+      }
+    }
+  }
+}

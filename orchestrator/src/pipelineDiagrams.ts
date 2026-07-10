@@ -15,59 +15,20 @@ interface PipelineFlowDoc {
 }
 
 const PIPELINE_FLOWS: Record<string, PipelineFlowDoc> = {
-  "osmium-gdal-tippecanoe": {
+  "roads-bikelanes-osm2pgsql-prefilter-osmium": {
     summary:
-      "Osmium prefilter on PBF, GDAL to GeoJSONSeq, then GeoParquet (GeoPandas) and PMTiles (tippecanoe). No database.",
+      "Osmium prefilter (highway ways) before tilda-geo osm2pgsql flex import, PostGIS SQL offset/cleanup, then shared NDJSON exports.",
     mermaid: `flowchart LR
   inputPbf["OSM PBF"]
-  osmiumFilter["Osmium tags-filter"]
+  osmiumFilter["Osmium tags-filter w/highway"]
   filteredPbf["Filtered PBF"]
-  gdalConvert["GDAL ogr2ogr GeoJSONSeq"]
-  ndjson["NDJSON"]
-  geoParquet["GeoParquet"]
-  pmtiles["PMTiles"]
-  validate["Validate"]
-
-  inputPbf --> osmiumFilter --> filteredPbf --> gdalConvert --> ndjson
-  ndjson --> geoParquet
-  ndjson --> pmtiles
-  geoParquet --> validate
-  pmtiles --> validate`,
-  },
-  "osm2pgsql-postgis-direct": {
-    summary:
-      "Full PBF import via osm2pgsql flex into PostGIS, SQL enrichment, then shared NDJSON exports. No upstream prefilter.",
-    mermaid: `flowchart LR
-  inputPbf["OSM PBF"]
-  osm2pgsql["osm2pgsql flex import"]
+  osm2pgsql["osm2pgsql flex roads_bikelanes"]
   postgis["PostGIS"]
-  sqlPost["SQL postprocess"]
+  sqlPost["SQL offset + todos cleanup"]
   ogrNdjson["ogr2ogr GeoJSONSeq"]
-  ndjson["NDJSON"]
-  geoParquet["GeoParquet"]
-  pmtiles["PMTiles"]
-  validate["Validate"]
-
-  inputPbf --> osm2pgsql --> postgis --> sqlPost --> ogrNdjson --> ndjson
-  ndjson --> geoParquet
-  ndjson --> pmtiles
-  geoParquet --> validate
-  pmtiles --> validate`,
-  },
-  "osm2pgsql-postgis-prefilter": {
-    summary:
-      "Osmium prefilter before osm2pgsql; same PostGIS SQL and export path as B1 (B2 reference pipeline).",
-    mermaid: `flowchart LR
-  inputPbf["OSM PBF"]
-  osmiumFilter["Osmium tags-filter"]
-  filteredPbf["Filtered PBF"]
-  osm2pgsql["osm2pgsql flex import"]
-  postgis["PostGIS"]
-  sqlPost["SQL postprocess"]
-  ogrNdjson["ogr2ogr GeoJSONSeq"]
-  ndjson["NDJSON"]
-  geoParquet["GeoParquet"]
-  pmtiles["PMTiles"]
+  ndjson["bikelanes.ndjson"]
+  geoParquet["bikelanes.parquet"]
+  pmtiles["bikelanes.pmtiles"]
   validate["Validate"]
 
   inputPbf --> osmiumFilter --> filteredPbf --> osm2pgsql --> postgis
@@ -77,91 +38,38 @@ const PIPELINE_FLOWS: Record<string, PipelineFlowDoc> = {
   geoParquet --> validate
   pmtiles --> validate`,
   },
-  "osm2pgsql-postgis-prefilter-osmfilter": {
+  "roads-bikelanes-osm2pgsql-direct": {
     summary:
-      "Prefilter via osmconvert + osmfilter (o5m), then same osm2pgsql → PostGIS → exports stack as B2.",
+      "Full PBF import via tilda-geo osm2pgsql flex (no prefilter), PostGIS SQL, then NDJSON → GeoParquet + PMTiles.",
     mermaid: `flowchart LR
   inputPbf["OSM PBF"]
-  osmconvert["osmconvert to o5m"]
-  osmfilter["osmfilter"]
-  filteredData["Filtered OSM"]
-  osm2pgsql["osm2pgsql flex import"]
+  osm2pgsql["osm2pgsql flex roads_bikelanes"]
   postgis["PostGIS"]
-  sqlPost["SQL postprocess"]
+  sqlPost["SQL offset + todos cleanup"]
   ogrNdjson["ogr2ogr GeoJSONSeq"]
-  ndjson["NDJSON"]
-  geoParquet["GeoParquet"]
-  pmtiles["PMTiles"]
+  ndjson["bikelanes.ndjson"]
+  geoParquet["bikelanes.parquet"]
+  pmtiles["bikelanes.pmtiles"]
   validate["Validate"]
 
-  inputPbf --> osmconvert --> osmfilter --> filteredData --> osm2pgsql --> postgis
-  postgis --> sqlPost --> ogrNdjson --> ndjson
+  inputPbf --> osm2pgsql --> postgis --> sqlPost --> ogrNdjson --> ndjson
   ndjson --> geoParquet
   ndjson --> pmtiles
   geoParquet --> validate
   pmtiles --> validate`,
   },
-  "planetiler-playgrounds": {
+  "roads-bikelanes-osmnexus-postgis": {
     summary:
-      "Single Planetiler JVM pass from PBF to PMTiles via YAML rules. No GeoParquet or SQL stage.",
+      "OSMnexus filters while importing into Postgres; SQL offset/cleanup; same export path as osm2pgsql variants.",
     mermaid: `flowchart LR
   inputPbf["OSM PBF"]
-  planetiler["Planetiler custommap"]
-  pmtiles["PMTiles"]
-  validate["Validate"]
-
-  inputPbf --> planetiler --> pmtiles --> validate`,
-  },
-  "cosmo-playgrounds-dual-pass": {
-    summary:
-      "Two cosmo convert passes on the PBF: native GeoParquet, then GeoJSONL for tippecanoe PMTiles.",
-    mermaid: `flowchart LR
-  inputPbf["OSM PBF"]
-  cosmoParquet["cosmo convert Parquet"]
-  geoParquet["GeoParquet"]
-  cosmoGeojsonl["cosmo convert GeoJSONL"]
-  geojsonl["GeoJSONL"]
-  tippecanoe["tippecanoe"]
-  pmtiles["PMTiles"]
-  validate["Validate"]
-
-  inputPbf --> cosmoParquet --> geoParquet
-  inputPbf --> cosmoGeojsonl --> geojsonl --> tippecanoe --> pmtiles
-  geoParquet --> validate
-  pmtiles --> validate`,
-  },
-  "cosmo-playgrounds-single-pass": {
-    summary:
-      "One cosmo convert to GeoJSONL, GDAL normalization, then GeoPandas Parquet and tippecanoe PMTiles.",
-    mermaid: `flowchart LR
-  inputPbf["OSM PBF"]
-  cosmoExtract["cosmo convert GeoJSONL"]
-  geojsonl["GeoJSONL"]
-  gdalNorm["ogr2ogr GeoJSONSeq"]
-  ndjson["NDJSON"]
-  geoParquet["GeoParquet"]
-  tippecanoe["tippecanoe"]
-  pmtiles["PMTiles"]
-  validate["Validate"]
-
-  inputPbf --> cosmoExtract --> geojsonl --> gdalNorm --> ndjson
-  ndjson --> geoParquet
-  ndjson --> tippecanoe --> pmtiles
-  geoParquet --> validate
-  pmtiles --> validate`,
-  },
-  "osmnexus-postgis": {
-    summary:
-      "OSMnexus filters while importing the full PBF into Postgres; same PostGIS SQL and export path as B2.",
-    mermaid: `flowchart LR
-  inputPbf["OSM PBF"]
-  osmnexusPg["OSMnexus pg import (filters while reading)"]
+  osmnexusPg["OSMnexus pg import"]
   postgis["PostGIS"]
-  sqlPost["SQL postprocess"]
+  sqlPost["SQL offset + cleanup"]
   ogrNdjson["ogr2ogr GeoJSONSeq"]
-  ndjson["NDJSON"]
-  geoParquet["GeoParquet"]
-  pmtiles["PMTiles"]
+  ndjson["bikelanes.ndjson"]
+  geoParquet["bikelanes.parquet"]
+  pmtiles["bikelanes.pmtiles"]
   validate["Validate"]
 
   inputPbf --> osmnexusPg --> postgis
@@ -171,20 +79,18 @@ const PIPELINE_FLOWS: Record<string, PipelineFlowDoc> = {
   geoParquet --> validate
   pmtiles --> validate`,
   },
-  "osmnexus-geojson-direct": {
+  "roads-bikelanes-osmnexus-geojsonseq": {
     summary:
-      "OSMnexus filters while reading the full PBF to GeoJSON, Python segment merge and polygonize, then shared exports. No database.",
+      "OSMnexus streams filtered bikelanes to NDJSON; GeoPandas Parquet and tippecanoe PMTiles. No database.",
     mermaid: `flowchart LR
   inputPbf["OSM PBF"]
-  osmnexusGeojson["OSMnexus geojson (filters while reading)"]
-  geojson["GeoJSON"]
-  pyTransform["Python transform"]
-  ndjson["NDJSON"]
-  geoParquet["GeoParquet"]
-  pmtiles["PMTiles"]
+  osmnexusStream["OSMnexus geojsonseq stream"]
+  ndjson["bikelanes.ndjson"]
+  geoParquet["bikelanes.parquet"]
+  pmtiles["bikelanes.pmtiles"]
   validate["Validate"]
 
-  inputPbf --> osmnexusGeojson --> geojson --> pyTransform --> ndjson
+  inputPbf --> osmnexusStream --> ndjson
   ndjson --> geoParquet
   ndjson --> pmtiles
   geoParquet --> validate
