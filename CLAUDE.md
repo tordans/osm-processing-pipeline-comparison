@@ -5,6 +5,7 @@
 - If asked to do too much work at once, stop and state that clearly.
 - For bulk implementation, review, or verification, **shell out to `cursor-agent`** (Composer 2.5) instead of doing token-heavy work inline on Fable.
 - Load skills `cursor-worker-implement` and `cursor-worker-review` when delegating.
+- **Model signal:** prefix every delegated call with the model it runs on, so the model is visible in the Claude desktop UI — subagent `description` (Agent tool), workflow agent `label`, and the `description` of Bash calls that invoke `cursor-agent`. Format: `[<model>] <what it does>`, e.g. `[composer-2.5] Build pipeline scripts`, `[sonnet-5] Map repo structure`.
 
 ## Picking models (workflows and subagents)
 
