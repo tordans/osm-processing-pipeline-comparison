@@ -32,7 +32,7 @@ VALIDATION_JSON="${OUTPUT_DIR}/validation.json"
 echo "[pipeline-a] filter input with osmium"
 T0=$(date +%s%3N)
 osmium tags-filter "${INPUT_PBF}" \
-  nwr/amenity=playground \
+  nwr/leisure=playground \
   nwr/playground=* \
   -o "${FILTERED_PBF}" -O
 T1=$(date +%s%3N)

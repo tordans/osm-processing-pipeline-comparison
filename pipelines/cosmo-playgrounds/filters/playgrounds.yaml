@@ -1,7 +1,7 @@
-# Playground extract — matches osmium tags-filter: nwr/amenity=playground, nwr/playground=*
+# Playground extract — matches osmium tags-filter: nwr/leisure=playground, nwr/playground=*
 table:
   name: playgrounds
-  filter: "amenity=playground | playground=*"
+  filter: "leisure=playground | playground=*"
   geometry:
     node: true
     way: linestring

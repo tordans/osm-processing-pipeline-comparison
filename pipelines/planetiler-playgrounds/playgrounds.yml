@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/onthegomap/planetiler/main/planetiler-custommap/planetilerspec.schema.json
-# OSM filter matches playground.lua / osmium-gdal pipeline: amenity=playground OR playground=* (any value).
+# OSM filter matches playground.lua / osmium-gdal pipeline: leisure=playground OR playground=* (any value).
 # Runtime: pass --osm-path to the benchmark extract; url below is a placeholder only.
 schema_name: Playgrounds benchmark
 schema_description: Playgrounds and playground-tagged equipment from OpenStreetMap
@@ -20,7 +20,7 @@ layers:
         min_zoom: 0
         max_zoom: 12
         include_when:
-          amenity: [playground]
+          leisure: [playground]
           playground: __any__
         attributes:
           - key: osm_id
@@ -29,8 +29,8 @@ layers:
             value: "${ feature.osm_type }"
           - key: name
             tag_value: name
-          - key: amenity
-            tag_value: amenity
+          - key: leisure
+            tag_value: leisure
           - key: playground
             tag_value: playground
 
@@ -39,7 +39,7 @@ layers:
         min_zoom: 0
         max_zoom: 12
         include_when:
-          amenity: [playground]
+          leisure: [playground]
           playground: __any__
         attributes:
           - key: osm_id
@@ -48,8 +48,8 @@ layers:
             value: "${ feature.osm_type }"
           - key: name
             tag_value: name
-          - key: amenity
-            tag_value: amenity
+          - key: leisure
+            tag_value: leisure
           - key: playground
             tag_value: playground
 
@@ -58,7 +58,7 @@ layers:
         min_zoom: 0
         max_zoom: 12
         include_when:
-          amenity: [playground]
+          leisure: [playground]
           playground: __any__
         attributes:
           - key: osm_id
@@ -67,7 +67,7 @@ layers:
             value: "${ feature.osm_type }"
           - key: name
             tag_value: name
-          - key: amenity
-            tag_value: amenity
+          - key: leisure
+            tag_value: leisure
           - key: playground
             tag_value: playground

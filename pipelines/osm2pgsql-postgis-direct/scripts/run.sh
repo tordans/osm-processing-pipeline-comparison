@@ -58,7 +58,7 @@ runuser -u postgres -- ogr2ogr -t_srs EPSG:4326 -f GeoJSONSeq \
   -lco "COORDINATE_PRECISION=${COORD_PRECISION}" -lco RFC7946=YES \
   "${NDJSON_OUT}" \
   "PG:dbname=osm_benchmark" \
-  -sql "SELECT osm_id, osm_type, name, amenity, playground, play_equipment_count, geom FROM benchmark.playground_export"
+  -sql "SELECT osm_id, osm_type, name, leisure, playground, play_equipment_count, geom FROM benchmark.playground_export"
 T7=$(date +%s%3N)
 
 echo "[pipeline-b1] export geoparquet from ndjson (geopandas/pyarrow; GDAL lacks Parquet driver)"
@@ -108,7 +108,7 @@ with open(ndjson_path, "r", encoding="utf-8") as f:
 warnings = []
 if line_count > 0 and enriched_count == 0:
     warnings.append(
-        "No exported features include play_equipment_count; dataset may lack amenity=playground polygons."
+        "No exported features include play_equipment_count; dataset may lack leisure=playground polygons."
     )
 
 validation = {

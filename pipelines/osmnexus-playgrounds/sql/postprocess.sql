@@ -7,7 +7,7 @@
 --   way_geometries       one LineString per kept way (closed ways are NOT polygonized)
 --   relation_geometries  ST_LineMerge of member ways (inner/outer roles are lost)
 --
--- This script polygonizes closed rings and enriches amenity=playground polygons
+-- This script polygonizes closed rings and enriches leisure=playground polygons
 -- with play_equipment_count. Geometries stay in 3857; ogr2ogr reprojects at export.
 
 CREATE SCHEMA IF NOT EXISTS benchmark;
@@ -19,7 +19,7 @@ SELECT
   t.osm_id,
   'node'::text AS osm_type,
   t.osm ->> 'name' AS name,
-  t.osm ->> 'amenity' AS amenity,
+  t.osm ->> 'leisure' AS leisure,
   t.osm ->> 'playground' AS playground,
   n.geom
 FROM playgrounds t
@@ -35,7 +35,7 @@ SELECT
   t.osm_id,
   'way'::text AS osm_type,
   t.osm ->> 'name' AS name,
-  t.osm ->> 'amenity' AS amenity,
+  t.osm ->> 'leisure' AS leisure,
   t.osm ->> 'playground' AS playground,
   CASE
     WHEN ST_IsClosed(w.geom) AND ST_NPoints(w.geom) >= 4
@@ -55,7 +55,7 @@ SELECT
   osm_id,
   osm_type,
   name,
-  amenity,
+  leisure,
   playground,
   CASE
     WHEN built IS NOT NULL AND NOT ST_IsEmpty(built) THEN built
@@ -66,7 +66,7 @@ FROM (
     t.osm_id,
     'relation'::text AS osm_type,
     t.osm ->> 'name' AS name,
-    t.osm ->> 'amenity' AS amenity,
+    t.osm ->> 'leisure' AS leisure,
     t.osm ->> 'playground' AS playground,
     r.geom AS raw_geom,
     ST_BuildArea(ST_Node(r.geom)) AS built
@@ -78,35 +78,35 @@ FROM (
 -- Same enrichment shape as the osm2pgsql pipelines
 DROP TABLE IF EXISTS benchmark.playground_polygons_raw;
 CREATE TABLE benchmark.playground_polygons_raw AS
-SELECT osm_id, osm_type, name, amenity, playground, geom
+SELECT osm_id, osm_type, name, leisure, playground, geom
 FROM benchmark.playground_way_geoms
 WHERE ST_Dimension(geom) = 2
 UNION ALL
-SELECT osm_id, osm_type, name, amenity, playground, geom
+SELECT osm_id, osm_type, name, leisure, playground, geom
 FROM benchmark.playground_relation_geoms
 WHERE ST_Dimension(geom) = 2;
 
 DROP TABLE IF EXISTS benchmark.playground_lines;
 CREATE TABLE benchmark.playground_lines AS
-SELECT osm_id, osm_type, name, amenity, playground, geom
+SELECT osm_id, osm_type, name, leisure, playground, geom
 FROM benchmark.playground_way_geoms
 WHERE ST_Dimension(geom) < 2
 UNION ALL
-SELECT osm_id, osm_type, name, amenity, playground, geom
+SELECT osm_id, osm_type, name, leisure, playground, geom
 FROM benchmark.playground_relation_geoms
 WHERE ST_Dimension(geom) < 2;
 
 DROP TABLE IF EXISTS benchmark.playground_equipment;
 CREATE TABLE benchmark.playground_equipment AS
-SELECT osm_id, osm_type, name, amenity, playground, geom
+SELECT osm_id, osm_type, name, leisure, playground, geom
 FROM benchmark.playground_points
 WHERE playground IS NOT NULL
 UNION ALL
-SELECT osm_id, osm_type, name, amenity, playground, geom
+SELECT osm_id, osm_type, name, leisure, playground, geom
 FROM benchmark.playground_lines
 WHERE playground IS NOT NULL
 UNION ALL
-SELECT osm_id, osm_type, name, amenity, playground, geom
+SELECT osm_id, osm_type, name, leisure, playground, geom
 FROM benchmark.playground_polygons_raw
 WHERE playground IS NOT NULL;
 
@@ -116,12 +116,12 @@ SELECT
   osm_id,
   osm_type,
   name,
-  amenity,
+  leisure,
   playground,
   geom,
   0::integer AS play_equipment_count
 FROM benchmark.playground_polygons_raw
-WHERE amenity = 'playground';
+WHERE leisure = 'playground';
 
 CREATE INDEX IF NOT EXISTS benchmark_playground_polygons_enriched_geom_idx
   ON benchmark.playground_polygons_enriched USING gist(geom);
@@ -149,7 +149,7 @@ SELECT
   osm_id,
   osm_type,
   name,
-  amenity,
+  leisure,
   playground,
   NULL::integer AS play_equipment_count,
   geom
@@ -159,7 +159,7 @@ SELECT
   osm_id,
   osm_type,
   name,
-  amenity,
+  leisure,
   playground,
   NULL::integer AS play_equipment_count,
   geom
@@ -169,18 +169,18 @@ SELECT
   osm_id,
   osm_type,
   name,
-  amenity,
+  leisure,
   playground,
   NULL::integer AS play_equipment_count,
   geom
 FROM benchmark.playground_polygons_raw
-WHERE amenity IS DISTINCT FROM 'playground'
+WHERE leisure IS DISTINCT FROM 'playground'
 UNION ALL
 SELECT
   osm_id,
   osm_type,
   name,
-  amenity,
+  leisure,
   playground,
   play_equipment_count,
   geom

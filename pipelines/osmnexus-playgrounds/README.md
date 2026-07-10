@@ -9,7 +9,7 @@
 
 ## standalone-nodes patch
 
-Upstream OSMnexus only emits `nodes` rows referenced by kept ways. Playground benchmarks need free-standing tagged nodes (`amenity=playground` points, equipment nodes), so the image build applies `patches/standalone-nodes.patch` before `cargo build`.
+Upstream OSMnexus only emits `nodes` rows referenced by kept ways. Playground benchmarks need free-standing tagged nodes (`leisure=playground` points, equipment nodes), so the image build applies `patches/standalone-nodes.patch` before `cargo build`.
 
 ## Step flows
 

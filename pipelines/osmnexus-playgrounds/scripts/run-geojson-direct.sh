@@ -28,7 +28,7 @@ VALIDATION_JSON="${OUTPUT_DIR}/validation.json"
 echo "[pipeline-nexus-geojson] prefilter source pbf with osmium"
 T0=$(date +%s%3N)
 osmium tags-filter "${INPUT_PBF}" \
-  nwr/amenity=playground \
+  nwr/leisure=playground \
   nwr/playground=* \
   -o "${FILTERED_PBF}" -O
 T1=$(date +%s%3N)
@@ -93,7 +93,7 @@ def base_props(props: dict, kind: str) -> dict:
         "osm_id": int(props["osm_id"]),
         "osm_type": kind or "way",
         "name": props.get("name"),
-        "amenity": props.get("amenity"),
+        "leisure": props.get("leisure"),
         "playground": props.get("playground"),
         "play_equipment_count": None,
     }

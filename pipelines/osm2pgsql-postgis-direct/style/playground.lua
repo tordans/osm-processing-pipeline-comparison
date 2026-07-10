@@ -1,5 +1,5 @@
 local function is_target(tags)
-  return tags.amenity == "playground" or tags.playground ~= nil
+  return tags.leisure == "playground" or tags.playground ~= nil
 end
 
 local points = osm2pgsql.define_table({
@@ -8,7 +8,7 @@ local points = osm2pgsql.define_table({
   columns = {
     { column = "osm_type", type = "text", not_null = true },
     { column = "name", type = "text" },
-    { column = "amenity", type = "text" },
+    { column = "leisure", type = "text" },
     { column = "playground", type = "text" },
     { column = "geom", type = "point", projection = 4326, not_null = true },
   },
@@ -20,7 +20,7 @@ local lines = osm2pgsql.define_table({
   columns = {
     { column = "osm_type", type = "text", not_null = true },
     { column = "name", type = "text" },
-    { column = "amenity", type = "text" },
+    { column = "leisure", type = "text" },
     { column = "playground", type = "text" },
     { column = "geom", type = "linestring", projection = 4326, not_null = true },
   },
@@ -32,7 +32,7 @@ local polygons_way = osm2pgsql.define_table({
   columns = {
     { column = "osm_type", type = "text", not_null = true },
     { column = "name", type = "text" },
-    { column = "amenity", type = "text" },
+    { column = "leisure", type = "text" },
     { column = "playground", type = "text" },
     { column = "geom", type = "polygon", projection = 4326, not_null = true },
   },
@@ -44,7 +44,7 @@ local polygons_relation = osm2pgsql.define_table({
   columns = {
     { column = "osm_type", type = "text", not_null = true },
     { column = "name", type = "text" },
-    { column = "amenity", type = "text" },
+    { column = "leisure", type = "text" },
     { column = "playground", type = "text" },
     { column = "geom", type = "multipolygon", projection = 4326, not_null = true },
   },
@@ -58,7 +58,7 @@ function osm2pgsql.process_node(object)
   points:insert({
     osm_type = "node",
     name = object.tags.name,
-    amenity = object.tags.amenity,
+    leisure = object.tags.leisure,
     playground = object.tags.playground,
     geom = object:as_point(),
   })
@@ -74,7 +74,7 @@ function osm2pgsql.process_way(object)
     lines:insert({
       osm_type = "way",
       name = object.tags.name,
-      amenity = object.tags.amenity,
+      leisure = object.tags.leisure,
       playground = object.tags.playground,
       geom = line_geom,
     })
@@ -85,7 +85,7 @@ function osm2pgsql.process_way(object)
     polygons_way:insert({
       osm_type = "way",
       name = object.tags.name,
-      amenity = object.tags.amenity,
+      leisure = object.tags.leisure,
       playground = object.tags.playground,
       geom = polygon_geom,
     })
@@ -102,7 +102,7 @@ function osm2pgsql.process_relation(object)
     polygons_relation:insert({
       osm_type = "relation",
       name = object.tags.name,
-      amenity = object.tags.amenity,
+      leisure = object.tags.leisure,
       playground = object.tags.playground,
       geom = mp_geom,
     })

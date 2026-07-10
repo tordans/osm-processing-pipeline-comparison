@@ -9,6 +9,7 @@ Compare pipeline variants on equal conditions for OSM playground extraction and 
 - Same input dataset per comparison run
 - Same machine and Docker runtime
 - Sequential execution (no overlapping pipeline runs)
+- **OSM filter (opinionated dataset):** nodes, ways, and relations with `leisure=playground` or any `playground=*` tag (Osmium: `nwr/leisure=playground nwr/playground=*`)
 - **Output contract:** the **target** for comparable pipelines is **PMTiles** (`playgrounds.pmtiles`) **and** **GeoParquet** (`playgrounds.parquet`). Pipelines that cannot produce an artifact **declare** the gap in `validation.json` (e.g. `lacking`) and remain valid if they meet their own checks (no second OSM pass added only to hide a gap).
 - Validation rules are defined per pipeline where needed (e.g. Planetiler does not emit a per-OSM-element `feature_count` comparable to GeoJSONSeq line counts; it may use `null` plus a note).
 - Capability flags for unsupported steps

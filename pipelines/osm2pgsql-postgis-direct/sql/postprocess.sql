@@ -4,23 +4,23 @@ CREATE SCHEMA IF NOT EXISTS benchmark;
 
 DROP TABLE IF EXISTS benchmark.playground_polygons_raw;
 CREATE TABLE benchmark.playground_polygons_raw AS
-SELECT osm_id, osm_type, name, amenity, playground, geom
+SELECT osm_id, osm_type, name, leisure, playground, geom
 FROM playground_polygons_way
 UNION ALL
-SELECT osm_id, osm_type, name, amenity, playground, geom
+SELECT osm_id, osm_type, name, leisure, playground, geom
 FROM playground_polygons_relation;
 
 DROP TABLE IF EXISTS benchmark.playground_equipment;
 CREATE TABLE benchmark.playground_equipment AS
-SELECT osm_id, osm_type, name, amenity, playground, geom
+SELECT osm_id, osm_type, name, leisure, playground, geom
 FROM playground_points
 WHERE playground IS NOT NULL
 UNION ALL
-SELECT osm_id, osm_type, name, amenity, playground, geom
+SELECT osm_id, osm_type, name, leisure, playground, geom
 FROM playground_lines
 WHERE playground IS NOT NULL
 UNION ALL
-SELECT osm_id, osm_type, name, amenity, playground, geom
+SELECT osm_id, osm_type, name, leisure, playground, geom
 FROM benchmark.playground_polygons_raw
 WHERE playground IS NOT NULL;
 
@@ -30,12 +30,12 @@ SELECT
   osm_id,
   osm_type,
   name,
-  amenity,
+  leisure,
   playground,
   geom,
   0::integer AS play_equipment_count
 FROM benchmark.playground_polygons_raw
-WHERE amenity = 'playground';
+WHERE leisure = 'playground';
 
 CREATE INDEX IF NOT EXISTS benchmark_playground_polygons_enriched_geom_idx
   ON benchmark.playground_polygons_enriched USING gist(geom);
@@ -63,7 +63,7 @@ SELECT
   osm_id,
   osm_type,
   name,
-  amenity,
+  leisure,
   playground,
   NULL::integer AS play_equipment_count,
   geom
@@ -73,7 +73,7 @@ SELECT
   osm_id,
   osm_type,
   name,
-  amenity,
+  leisure,
   playground,
   NULL::integer AS play_equipment_count,
   geom
@@ -83,7 +83,7 @@ SELECT
   osm_id,
   osm_type,
   name,
-  amenity,
+  leisure,
   playground,
   play_equipment_count,
   geom

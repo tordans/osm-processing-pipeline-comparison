@@ -9,7 +9,7 @@ Use this pipeline to compare prefilter CPU and wall time against B2 on identical
 ## Steps
 
 1. `osmconvert` full PBF → `.o5m` (osmfilter requires a seekable file; it does not read stdin)
-2. `osmfilter` keep objects matching `amenity=playground` **or** `playground` (any value), matching B2’s Osmium `tags-filter` intent
+2. `osmfilter` keep objects matching `leisure=playground` **or** `playground` (any value), matching B2’s Osmium `tags-filter` intent
 3. Remove the full `.o5m` before import to free disk
 4. Import filtered `.o5m` with osm2pgsql (same flex style and SQL as B2 — paths under `pipelines/osm2pgsql-postgis-prefilter/`)
 5. Same exports and validation as B2

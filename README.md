@@ -14,6 +14,8 @@ OSM data becomes more detailed and more complex every day. That creates a need f
 
 This repository encourages **opinionated datasets** for specific domains: datasets that document and implement clear answers to questions like _Which OSM tags, keys, and values are relevant?_, _How should different tag combinations be interpreted?_, _Which derived attributes should be added for the map or analysis use case?_, and _Where does raw OSM detail need to be normalized, grouped, or counted?_
 
+For playgrounds, the shared extract filter is `leisure=playground` or any `playground=*` tag on nodes, ways, and relations. Exported attributes include `name`, `leisure`, `playground`, and (for polygon areas) `play_equipment_count`.
+
 For playgrounds, a simple example is `play_equipment_count`: individual play equipment features can be counted for each playground area, so a map or analysis can show which playgrounds have the most mapped equipment. That small enrichment step is part of the dataset definition, not just a rendering trick.
 
 ### Two Outputs, One Dataset
