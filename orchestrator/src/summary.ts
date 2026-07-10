@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
+  buildCachedResultsFootnote,
   buildCanonicalTimingsTable,
   buildDatasetSection,
   buildRequirementsTable,
@@ -431,6 +432,7 @@ export async function generateSummaryFromRuns(): Promise<void> {
   const cosmoDual = pipelines.find((p) => p.id === COSMO_DUAL_PASS_ID);
   const cosmoSingle = pipelines.find((p) => p.id === COSMO_SINGLE_PASS_ID);
   const okCount = pipelines.filter((p) => p.status === "ok").length;
+  const cachedCount = pipelines.filter((p) => p.cached).length;
 
   const pipelineA = pipelines.find((p) => p.id === "osmium-gdal-tippecanoe");
   const b1Features = b1?.validation?.feature_count;
@@ -480,6 +482,9 @@ export async function generateSummaryFromRuns(): Promise<void> {
     `- **Input:** \`${latest.inputPbfPath}\``,
     `- **Window:** \`${latest.startedAt}\` → \`${latest.finishedAt}\``,
     `- **Pipelines OK:** ${okCount} / ${pipelines.length}`,
+    ...(cachedCount > 0
+      ? [`- **Reused from cache:** ${cachedCount} pipeline(s) (see footnote under timings)`]
+      : []),
     "",
     "## How to read this report",
     "",
@@ -492,6 +497,7 @@ export async function generateSummaryFromRuns(): Promise<void> {
     "",
     ...buildDatasetSection(comparisons),
     ...buildCanonicalTimingsTable(pipelines, comparisons),
+    ...buildCachedResultsFootnote(pipelines),
     ...buildRequirementsTable(pipelines, comparisons),
     "",
     ...buildPipelineFlowsChapter(pipelines.map((p) => p.id)),

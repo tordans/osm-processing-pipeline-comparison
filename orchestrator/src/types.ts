@@ -77,6 +77,11 @@ export interface PipelineRunResult {
   error?: string;
   /** Last lines of container stderr when docker run failed (for debugging). */
   stderrTail?: string;
+  /** Present when this result was reused from a prior successful run (no docker build/run). */
+  cached?: {
+    fromRunId: string;
+    completedAt: string;
+  };
 }
 
 export interface BenchmarkRunReport {

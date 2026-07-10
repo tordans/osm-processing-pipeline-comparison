@@ -3,6 +3,11 @@ import { mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { intro, outro, spinner } from "@clack/prompts";
 import { DATASETS, PIPELINES, REPO_ROOT, RESULTS_RUNS_DIR } from "./config";
+import {
+  computePipelineHash,
+  tryLoadCachedResult,
+  writeRunCache,
+} from "./pipelineCache";
 import { prepareInput } from "./prepare";
 import { generateSummaryFromRuns } from "./summary";
 import type {
@@ -184,7 +189,33 @@ async function runAll(datasetKey: DatasetKey, force: boolean): Promise<void> {
 
   for (const pipeline of PIPELINES) {
     spin.start(`Building and running ${pipeline.id}`);
+    const outputDir = join(REPO_ROOT, "data", "output", pipeline.id, datasetKey);
+    const pipelineHash = await computePipelineHash(pipeline, datasetKey);
+
+    if (!force) {
+      const cached = await tryLoadCachedResult(pipeline, pipelineHash, outputDir);
+      if (cached) {
+        results.push(cached);
+        spin.stop(
+          `${pipeline.id}: reused cached result from ${cached.cached!.completedAt}`,
+        );
+        continue;
+      }
+    }
+
     const result = await runPipeline(pipeline, datasetKey);
+    if (result.status === "ok") {
+      await writeRunCache(outputDir, {
+        hash: pipelineHash,
+        pipelineId: pipeline.id,
+        dataset: datasetKey,
+        completedAt: new Date().toISOString(),
+        runId,
+        buildMs: result.buildMs,
+        containerMs: result.containerMs,
+        totalMs: result.totalMs,
+      });
+    }
     results.push(result);
     spin.stop(`${pipeline.id}: ${result.status} (${(result.totalMs / 1000).toFixed(2)}s)`);
   }
@@ -235,6 +266,7 @@ async function runSummaryOnly(): Promise<void> {
 function printHelp(): void {
   console.log("Usage:");
   console.log("  bun run orchestrator/src/index.ts run --dataset berlin|germany [--force]");
+  console.log("    --force  re-download dataset (prepare) or bypass pipeline result cache (run)");
   console.log("  bun run orchestrator/src/index.ts prepare --dataset berlin|germany [--force]");
   console.log("  bun run orchestrator/src/index.ts summary");
 }

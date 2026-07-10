@@ -58,6 +58,38 @@ function reqCell(req: RequirementStatus | undefined): string {
   return reason ? `no (${escapeCell(reason)})` : "no";
 }
 
+function formatCachedDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return iso.slice(0, 10);
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+export function buildCachedResultsFootnote(pipelines: PipelineRunResult[]): string[] {
+  const cached = pipelines.filter((p) => p.cached);
+  if (cached.length === 0) {
+    return [];
+  }
+
+  const lines = [
+    "### Cached pipeline results",
+    "",
+    "These pipelines were unchanged since a prior successful run; timings below are from the original run (no docker build/run this session).",
+    "",
+  ];
+
+  for (const p of cached.sort((a, b) => a.id.localeCompare(b.id))) {
+    const at = p.cached!.completedAt;
+    lines.push(
+      `- **${pipelineLink(p.id)}:** ok (cached ${formatCachedDate(at)}) — original run \`${p.cached!.fromRunId}\`, recorded ${at}`,
+    );
+  }
+
+  lines.push("");
+  return lines;
+}
+
 export function buildCanonicalTimingsTable(
   pipelines: PipelineRunResult[],
   comparisons: Map<string, ComparisonArtifact | undefined>,
