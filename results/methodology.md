@@ -82,6 +82,9 @@ Measured (osm2pgsql-prefilter vs osmnexus-postgis, Berlin):
   sanitizer drops junk values that OSMnexus keeps
 - offset geometry length differences: p95 = 1.9% (width-default vs parent-width, see above)
 
+Germany scale confirms the picture: id-set drift 0.83% (993 139 vs 1 000 109 features), category
+mismatches 0.01%, `side`/`oneway` ≈ 0, smoothness at the known ~11% deriver skew.
+
 ## Deviations from production (all marked in code)
 
 1. **Pseudo-tag enrichment stubbed** (osm2pgsql side): tilda production enriches `_is_sidepath` /

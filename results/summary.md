@@ -1,12 +1,13 @@
 # Benchmark Summary
 
-Generated from run artifact: `/Users/tordans/Development/OSM/osm-processing-pipeline-comparison/results/runs/run-2026-07-10T21-30-38-392Z-berlin.json`
+Generated from run artifact: `/Users/tordans/Development/OSM/osm-processing-pipeline-comparison/results/runs/run-2026-07-11T07-28-55-060Z-germany.json`
 
-- **Run ID:** `2026-07-10T21-30-38-392Z`
-- **Dataset:** `berlin`
-- **Input:** `/Users/tordans/Development/OSM/osm-processing-pipeline-comparison/data/raw/berlin-latest.osm.pbf`
-- **Window:** `2026-07-10T21:30:38.392Z` → `2026-07-10T21:32:31.366Z`
+- **Run ID:** `2026-07-11T07-28-55-060Z`
+- **Dataset:** `germany`
+- **Input:** `/Users/tordans/Development/OSM/osm-processing-pipeline-comparison/data/raw/germany-latest.osm.pbf`
+- **Window:** `2026-07-11T07:28:55.060Z` → `2026-07-11T08:00:50.193Z`
 - **Pipelines OK:** 4 / 4
+- **Reused from cache:** 2 pipeline(s) (see footnote under timings)
 
 ## How to read this report
 
@@ -19,9 +20,9 @@ Generated from run artifact: `/Users/tordans/Development/OSM/osm-processing-pipe
 
 ## Dataset used for this run
 
-- **Name:** `berlin`
-- **Input path:** `/workspace/data/raw/berlin-latest.osm.pbf`
-- **Source URL:** https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf
+- **Name:** `germany`
+- **Input path:** `/workspace/data/raw/germany-latest.osm.pbf`
+- **Source URL:** https://download.geofabrik.de/europe/germany-latest.osm.pbf
 
 ## Comparable timings and requirements
 
@@ -29,19 +30,26 @@ All values come from each pipeline’s `comparison.json` (canonical schema). `�
 
 | Pipeline | Dataset | Filter | Clean/transform | GeoParquet | PMTiles | SQL postprocess | Validate | In-container total | Build | Container | Total |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| [roads-bikelanes-osm2pgsql-direct](#roads-bikelanes-osm2pgsql-direct) | berlin | — | 0:34 | 0:01 | 0:02 | 0:04 | 0:00 | 0:43 | 0:01 | 0:44 | 0:45 |
-| [roads-bikelanes-osm2pgsql-prefilter-osmium](#roads-bikelanes-osm2pgsql-prefilter-osmium) | berlin | 0:02 | 0:33 | 0:01 | 0:02 | 0:00 | 0:00 | 0:41 | 0:01 | 0:42 | 0:42 |
-| [roads-bikelanes-osmnexus-geojsonseq](#roads-bikelanes-osmnexus-geojsonseq) | berlin | — | 0:07 | 0:01 | 0:03 | — | 0:00 | 0:11 | 0:01 | 0:12 | 0:13 |
-| [roads-bikelanes-osmnexus-postgis](#roads-bikelanes-osmnexus-postgis) | berlin | — | 0:04 | 0:01 | 0:02 | 0:01 | 0:00 | 0:11 | 0:02 | 0:12 | 0:13 |
+| [roads-bikelanes-osm2pgsql-direct](#roads-bikelanes-osm2pgsql-direct) | germany | — | 33:00 | 0:18 | 1:38 | 0:25 | 0:10 | 35:34 | 0:03 | 35:36 | 35:39 |
+| [roads-bikelanes-osm2pgsql-prefilter-osmium](#roads-bikelanes-osm2pgsql-prefilter-osmium) | germany | 0:41 | 25:11 | 0:17 | 1:19 | 0:31 | 0:13 | 28:15 | 0:01 | 28:17 | 28:18 |
+| [roads-bikelanes-osmnexus-geojsonseq](#roads-bikelanes-osmnexus-geojsonseq) | germany | — | 10:48 | 0:47 | 2:15 | — | 0:20 | 14:10 | 0:03 | 14:13 | 14:16 |
+| [roads-bikelanes-osmnexus-postgis](#roads-bikelanes-osmnexus-postgis) | germany | — | 11:53 | 0:18 | 1:48 | 3:23 | 0:03 | 17:26 | 0:02 | 17:37 | 17:39 |
+
+### Cached pipeline results
+
+These pipelines were unchanged since a prior successful run; timings below are from the original run (no docker build/run this session).
+
+- **[roads-bikelanes-osm2pgsql-direct](#roads-bikelanes-osm2pgsql-direct):** ok (cached 2026-07-10) — original run `2026-07-10T21-35-25-081Z`, recorded 2026-07-10T22:39:21.950Z
+- **[roads-bikelanes-osm2pgsql-prefilter-osmium](#roads-bikelanes-osm2pgsql-prefilter-osmium):** ok (cached 2026-07-10) — original run `2026-07-10T21-35-25-081Z`, recorded 2026-07-10T22:03:42.936Z
 
 ### Core requirements
 
 | Pipeline | 1. GeoParquet | 2. PMTiles | 3. Filter/clean/confirmed | 4. SQL postprocess/confirmed | Val OK | Features | Parquet | PMTiles |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| [roads-bikelanes-osm2pgsql-direct](#roads-bikelanes-osm2pgsql-direct) | yes | yes | yes | yes | yes | 38898 | 3.01 MiB | 9.51 MiB |
-| [roads-bikelanes-osm2pgsql-prefilter-osmium](#roads-bikelanes-osm2pgsql-prefilter-osmium) | yes | yes | yes | yes | yes | 38898 | 3.01 MiB | 9.51 MiB |
-| [roads-bikelanes-osmnexus-geojsonseq](#roads-bikelanes-osmnexus-geojsonseq) | yes | yes | yes | no (No SQL/PostGIS stage; geometries not offset) | yes | 39027 | 2.87 MiB | 6.66 MiB |
-| [roads-bikelanes-osmnexus-postgis](#roads-bikelanes-osmnexus-postgis) | yes | yes | yes | yes | yes | 39027 | 3.15 MiB | 9.44 MiB |
+| [roads-bikelanes-osm2pgsql-direct](#roads-bikelanes-osm2pgsql-direct) | yes | yes | yes | yes | yes | 993139 | 108.41 MiB | 115.08 MiB |
+| [roads-bikelanes-osm2pgsql-prefilter-osmium](#roads-bikelanes-osm2pgsql-prefilter-osmium) | yes | yes | yes | yes | yes | 993139 | 108.41 MiB | 115.08 MiB |
+| [roads-bikelanes-osmnexus-geojsonseq](#roads-bikelanes-osmnexus-geojsonseq) | yes | yes | yes | no (No SQL/PostGIS stage; geometries not offset) | yes | 1000109 | 87.64 MiB | 85.79 MiB |
+| [roads-bikelanes-osmnexus-postgis](#roads-bikelanes-osmnexus-postgis) | yes | yes | yes | yes | yes | 1000109 | 107.84 MiB | 115.56 MiB |
 
 
 ## Pipeline flows
