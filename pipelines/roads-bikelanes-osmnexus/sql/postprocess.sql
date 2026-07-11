@@ -37,14 +37,23 @@ JOIN way_geometries w ON w.osm_id = t.osm_id
 WHERE t.osm_type = 'W';
 
 CREATE INDEX bikelanes_export_geom_idx ON bikelanes_export USING gist (geom);
+-- The offset UPDATE joins back on id; without this index the join degrades
+-- to a nested loop over ~1M rows at Germany scale.
+CREATE UNIQUE INDEX bikelanes_export_id_idx ON bikelanes_export (id);
+ANALYZE bikelanes_export;
 
 -- Offset sided bikelanes away from the road center line (tilda 2_move_bikelanes.sql):
 -- EPSG:5243 for meter units, ST_Simplify(0.5), ST_OffsetCurve(+left/-right),
 -- then ST_Reverse to restore per-side line direction.
-UPDATE bikelanes_export b
-SET geom = ST_Transform(
-  ST_OffsetCurve(
-    ST_Simplify(ST_Transform(b.geom, 5243), 0.5),
+-- ST_OffsetCurve can yield a MultiLineString for lines that self-intersect
+-- after simplification; the geom column is LineString-typed, so only apply
+-- the offset where the (line-merged) result stays a single LineString.
+WITH offsets AS MATERIALIZED (
+  SELECT
+    b.id,
+    ST_LineMerge(ST_Transform(
+      ST_OffsetCurve(
+        ST_Simplify(ST_Transform(b.geom, 5243), 0.5),
     (CASE b.side WHEN 'left' THEN 1 ELSE -1 END)
       * (
           COALESCE(
@@ -58,18 +67,22 @@ SET geom = ST_Transform(
             END
           ) / 2.0
         )
-  ),
-  3857
+      ),
+      3857
+    )) AS new_geom
+  FROM bikelanes_export b
+  WHERE b.side IN ('left', 'right')
+    AND ST_IsSimple(b.geom)
+    AND NOT ST_IsClosed(b.geom)
 )
-WHERE b.side IN ('left', 'right')
-  AND ST_IsSimple(b.geom)
-  AND NOT ST_IsClosed(b.geom);
-
+-- ST_Reverse restores per-side direction (ST_OffsetCurve reverses negative
+-- offsets); applied only to rows whose offset actually succeeded.
 UPDATE bikelanes_export b
-SET geom = ST_Reverse(geom)
-WHERE b.side IN ('left', 'right')
-  AND ST_IsSimple(b.geom)
-  AND NOT ST_IsClosed(b.geom);
+SET geom = ST_Reverse(o.new_geom)
+FROM offsets o
+WHERE o.id = b.id
+  AND ST_GeometryType(o.new_geom) = 'ST_LineString'
+  AND NOT ST_IsEmpty(o.new_geom);
 
 -- Roads: counts only (validation parity); no offset step.
 DROP TABLE IF EXISTS roads_export;
